@@ -1,0 +1,1562 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fine · Lot Registry — Provnr</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+:root {
+  /* Provnr brand tokens */
+  --mint:    #90EE82;
+  --mint-dim: #6abf5e;
+  --mint-glow: rgba(144,238,130,0.12);
+  --mint-glow2: rgba(144,238,130,0.06);
+  --orange:  #F5921E;
+  --olive:   #5B7A3D;
+  --black:   #000000;
+  --surface: #0f0f0f;
+  --surface2: #161616;
+  --surface3: #1e1e1e;
+  --surface4: #252525;
+  --border:  rgba(255,255,255,0.08);
+  --border2: rgba(144,238,130,0.20);
+  --text:    #ffffff;
+  --text-muted: rgba(255,255,255,0.45);
+  --text-dim: rgba(255,255,255,0.65);
+  --shadow:  0 4px 24px rgba(0,0,0,0.6);
+  --shadow-sm: 0 2px 10px rgba(0,0,0,0.4);
+
+  /* Status colors — dark-native */
+  --s-reg:   #4A90D9;
+  --s-proc:  #F5921E;
+  --s-qual:  #A78BFA;
+  --s-pack:  #90EE82;
+  --s-disp:  #34D399;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:'Nunito',sans-serif;
+  font-size:14px;
+  color:var(--text);
+  background:var(--black);
+  height:100vh;
+  overflow:hidden;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--surface4);border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:#333}
+
+/* ── Layout ── */
+.app{display:flex;flex-direction:column;height:100vh}
+
+/* ── Header ── */
+.hdr{
+  background:var(--black);
+  border-bottom:1px solid var(--border);
+  height:52px;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px;
+  flex-shrink:0;
+  gap:12px;
+  position:relative;
+  z-index:10;
+}
+.hdr-brand{display:flex;align-items:center;gap:10px}
+.hdr-logo{
+  display:flex;align-items:center;gap:6px;
+  font-size:15px;font-weight:900;
+  color:var(--mint);
+  letter-spacing:-0.3px;
+}
+.hdr-logo svg{flex-shrink:0}
+.hdr-divider{width:1px;height:20px;background:var(--border);margin:0 4px}
+.hdr-product{
+  font-size:11px;font-weight:700;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  color:var(--text-muted);
+}
+.hdr-right{display:flex;align-items:center;gap:8px}
+.org-pill{
+  background:var(--surface3);
+  border:1px solid var(--border);
+  border-radius:6px;
+  padding:5px 12px;
+  font-size:12px;font-weight:700;
+  cursor:pointer;color:var(--text-dim);
+  white-space:nowrap;
+  transition:all .15s;
+}
+.org-pill:hover{border-color:var(--mint);color:var(--mint)}
+.org-pill strong{color:var(--mint)}
+
+/* ── Body ── */
+.body{display:flex;flex:1;overflow:hidden}
+
+/* ── Sidebar ── */
+.sidebar{
+  width:200px;
+  background:var(--surface);
+  border-right:1px solid var(--border);
+  padding:10px 0;
+  flex-shrink:0;
+  display:flex;flex-direction:column;
+  gap:2px;
+  overflow-y:auto;
+}
+.sb-label{
+  font-size:10px;font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:1.5px;
+  color:var(--text-muted);
+  padding:10px 16px 5px;
+  margin-top:4px;
+}
+.nb{
+  display:flex;align-items:center;gap:9px;
+  width:100%;padding:8px 16px;
+  border:none;background:none;
+  color:var(--text-dim);
+  cursor:pointer;font-size:13px;font-weight:600;
+  text-align:left;
+  border-radius:0;
+  transition:all .12s;
+  font-family:'Nunito',sans-serif;
+}
+.nb:hover{background:var(--surface3);color:var(--text)}
+.nb.active{
+  background:var(--mint-glow);
+  color:var(--mint);
+  border-right:2px solid var(--mint);
+}
+.nb svg{flex-shrink:0;opacity:.6}
+.nb.active svg{opacity:1}
+.nb.active svg *{stroke:var(--mint)}
+
+.sb-divider{border:none;border-top:1px solid var(--border);margin:6px 12px}
+
+.action-nb{
+  display:block;
+  width:calc(100% - 24px);
+  margin:3px 12px;
+  padding:7px 12px;
+  border-radius:6px;
+  border:1px solid var(--border2);
+  background:none;
+  color:var(--mint);
+  cursor:pointer;
+  font-size:12px;font-weight:700;
+  text-align:left;
+  transition:all .12s;
+  font-family:'Nunito',sans-serif;
+}
+.action-nb:hover,.action-nb.hi{
+  background:var(--mint-glow);
+  border-color:var(--mint);
+}
+
+/* ── Main ── */
+.main{flex:1;overflow-y:auto;padding:20px}
+
+/* ── Stats ── */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.sc{
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:16px 18px;
+  box-shadow:var(--shadow-sm);
+  position:relative;
+  overflow:hidden;
+  transition:border-color .15s;
+}
+.sc:hover{border-color:var(--border2)}
+.sc::before{
+  content:'';
+  position:absolute;top:0;left:0;right:0;
+  height:2px;
+  background:var(--mint);
+}
+.sc .n{font-size:28px;font-weight:900;color:var(--mint);line-height:1}
+.sc .l{font-size:11px;font-weight:700;color:var(--text-muted);margin-top:4px;text-transform:uppercase;letter-spacing:.5px}
+
+/* ── Card ── */
+.card{
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:10px;
+  box-shadow:var(--shadow-sm);
+  overflow:hidden;
+  margin-bottom:20px;
+}
+.card-hdr{
+  padding:14px 20px;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+}
+.card-hdr h2{font-size:13px;font-weight:800;color:var(--text);text-transform:uppercase;letter-spacing:.8px}
+.search{
+  padding:6px 12px;
+  border:1px solid var(--border);
+  border-radius:6px;
+  font-size:13px;
+  width:210px;
+  background:var(--surface3);
+  color:var(--text);
+  font-family:'Nunito',sans-serif;
+  transition:border-color .15s;
+}
+.search:focus{outline:none;border-color:var(--mint)}
+.search::placeholder{color:var(--text-muted)}
+
+/* ── Table ── */
+table{width:100%;border-collapse:collapse}
+th{
+  background:var(--surface3);
+  padding:9px 16px;
+  text-align:left;
+  font-size:10px;font-weight:800;
+  text-transform:uppercase;letter-spacing:1px;
+  color:var(--text-muted);
+  border-bottom:1px solid var(--border);
+}
+td{
+  padding:11px 16px;
+  border-bottom:1px solid var(--border);
+  font-size:13px;
+  font-weight:600;
+  color:var(--text-dim);
+}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--surface3);cursor:pointer;color:var(--text)}
+.code{
+  font-family:'Courier New',monospace;
+  font-weight:700;
+  color:var(--mint);
+  font-size:12px;
+  letter-spacing:.5px;
+  background:var(--mint-glow2);
+  padding:2px 6px;
+  border-radius:4px;
+  border:1px solid var(--border2);
+}
+.mix-code{color:var(--orange);background:rgba(245,146,30,0.08);border-color:rgba(245,146,30,0.25)}
+
+/* ── Badges ── */
+.badge{
+  display:inline-block;
+  padding:3px 9px;
+  border-radius:20px;
+  font-size:10px;font-weight:800;
+  letter-spacing:.5px;
+  text-transform:uppercase;
+}
+.b-reg{background:rgba(74,144,217,0.15);color:#6BAED6;border:1px solid rgba(74,144,217,0.3)}
+.b-proc{background:rgba(245,146,30,0.15);color:var(--orange);border:1px solid rgba(245,146,30,0.3)}
+.b-qual{background:rgba(167,139,250,0.15);color:#B39DDB;border:1px solid rgba(167,139,250,0.3)}
+.b-pack{background:rgba(144,238,130,0.15);color:var(--mint);border:1px solid var(--border2)}
+.b-disp{background:rgba(52,211,153,0.15);color:#34D399;border:1px solid rgba(52,211,153,0.3)}
+
+/* ── Buttons ── */
+.btn{
+  padding:8px 18px;
+  border-radius:6px;
+  border:none;
+  cursor:pointer;
+  font-size:13px;font-weight:700;
+  transition:all .15s;
+  font-family:'Nunito',sans-serif;
+}
+.btn-p{background:var(--mint);color:#000}.btn-p:hover{background:var(--mint-dim)}
+.btn-s{
+  background:var(--surface3);
+  color:var(--text-dim);
+  border:1px solid var(--border);
+}.btn-s:hover{background:var(--surface4);color:var(--text)}
+.btn-d{
+  background:rgba(239,68,68,0.12);
+  color:#F87171;
+  border:1px solid rgba(239,68,68,0.3);
+}.btn-d:hover{background:rgba(239,68,68,0.22)}
+.btn-e{
+  background:var(--mint-glow);
+  color:var(--mint);
+  border:1px solid var(--border2);
+}.btn-e:hover{background:rgba(144,238,130,0.2)}
+.btn-sm{padding:5px 12px;font-size:12px}
+.iBtn{
+  background:none;border:none;cursor:pointer;
+  padding:4px 7px;border-radius:5px;
+  color:var(--text-muted);font-size:14px;line-height:1;
+  transition:all .12s;
+}
+.iBtn:hover{background:var(--surface4);color:var(--text)}
+
+/* ── Form Card ── */
+.fcard{
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:10px;
+  box-shadow:var(--shadow);
+  overflow:hidden;
+  max-width:900px;
+}
+.fcard-hdr{
+  background:var(--black);
+  border-bottom:1px solid var(--border2);
+  padding:20px 24px;
+}
+.fcard-hdr h2{
+  font-size:16px;font-weight:900;
+  color:var(--text);
+  text-transform:uppercase;letter-spacing:.5px;
+}
+.fcard-hdr p{font-size:12px;color:var(--text-muted);margin-top:3px;font-weight:600}
+.code-box{
+  background:var(--mint-glow2);
+  border:1px solid var(--border2);
+  border-radius:8px;
+  padding:8px 16px;
+  margin-top:14px;
+  display:inline-flex;
+  align-items:baseline;
+  gap:12px;
+}
+.code-box .big{
+  font-family:'Courier New',monospace;
+  font-size:22px;font-weight:700;
+  color:var(--mint);
+  letter-spacing:2px;
+}
+.code-box .tiny{font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px}
+
+/* ── Tabs ── */
+.tabs{
+  display:flex;
+  background:var(--black);
+  border-bottom:1px solid var(--border);
+  overflow-x:auto;
+}
+.tab{
+  padding:12px 18px;
+  font-size:12px;font-weight:700;
+  cursor:pointer;border:none;background:none;
+  color:var(--text-muted);
+  border-bottom:2px solid transparent;
+  white-space:nowrap;flex-shrink:0;
+  transition:all .12s;
+  font-family:'Nunito',sans-serif;
+  text-transform:uppercase;letter-spacing:.5px;
+}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--mint);border-bottom-color:var(--mint)}
+.tab.done{color:var(--text-dim)}.tab.done::before{content:"✓ ";color:var(--mint)}
+
+/* ── Form Body ── */
+.fbody{padding:24px}
+.frow{display:grid;gap:14px;margin-bottom:14px}
+.f2{grid-template-columns:1fr 1fr}
+.f3{grid-template-columns:1fr 1fr 1fr}
+.f4{grid-template-columns:1fr 1fr 1fr 1fr}
+.f1{grid-template-columns:1fr}
+.fg{display:flex;flex-direction:column;gap:5px}
+.fg label{
+  font-size:10px;font-weight:800;
+  color:var(--mint);
+  text-transform:uppercase;letter-spacing:1px;
+}
+.fg input,.fg select,.fg textarea{
+  padding:8px 12px;
+  border:1px solid var(--border);
+  border-radius:6px;
+  font-size:13px;font-weight:600;
+  color:var(--text);
+  background:var(--surface3);
+  transition:border-color .15s;
+  font-family:'Nunito',sans-serif;
+}
+.fg input:focus,.fg select:focus,.fg textarea:focus{
+  outline:none;
+  border-color:var(--mint);
+  box-shadow:0 0 0 2px var(--mint-glow);
+}
+.fg select option{background:var(--surface3);color:var(--text)}
+.fg input[readonly]{
+  background:var(--surface);
+  color:var(--mint);
+  font-family:'Courier New',monospace;
+  font-weight:700;
+  font-size:13px;
+  letter-spacing:1px;
+  cursor:default;
+}
+.fg .hint{font-size:11px;color:var(--text-muted);font-weight:600}
+.fg textarea{resize:vertical;min-height:72px}
+
+/* ── Section head ── */
+.sh{
+  font-size:10px;font-weight:900;
+  color:var(--mint);
+  text-transform:uppercase;letter-spacing:1.5px;
+  padding-bottom:8px;
+  border-bottom:1px solid var(--border2);
+  margin-bottom:14px;
+  margin-top:6px;
+}
+
+/* ── Variety rows ── */
+.vrow{display:grid;grid-template-columns:1fr 110px 32px;gap:8px;align-items:end;margin-bottom:8px}
+.add-btn{
+  background:none;
+  border:1px dashed var(--border2);
+  border-radius:6px;
+  padding:7px 12px;
+  color:var(--mint);
+  cursor:pointer;font-size:12px;font-weight:700;
+  margin-top:4px;
+  transition:all .12s;
+  font-family:'Nunito',sans-serif;
+}
+.add-btn:hover{background:var(--mint-glow);border-style:solid}
+.rm-btn{
+  background:none;border:none;
+  color:var(--text-muted);
+  cursor:pointer;font-size:18px;
+  padding:6px 2px;line-height:1;
+  transition:color .12s;
+}
+.rm-btn:hover{color:#F87171}
+
+/* ── Cut test table ── */
+.ct-wrap{overflow-x:auto;margin-top:8px}
+.ct{width:100%;border-collapse:collapse;font-size:12px}
+.ct th{
+  background:var(--surface3);
+  padding:7px 10px;text-align:center;
+  font-size:10px;font-weight:800;
+  text-transform:uppercase;letter-spacing:.5px;
+  color:var(--text-muted);
+  border:1px solid var(--border);
+}
+.ct th.left{text-align:left}
+.ct td{
+  padding:5px 5px;border:1px solid var(--border);
+  text-align:center;vertical-align:middle;
+}
+.ct td.param{
+  padding-left:10px;font-weight:700;
+  color:var(--text-dim);text-align:left;
+  background:var(--surface3);white-space:nowrap;
+  border:1px solid var(--border);
+}
+.ct td.ref{
+  font-size:10px;font-weight:700;
+  color:var(--text-muted);
+  background:var(--surface3);
+  border:1px solid var(--border);
+}
+.ct input{
+  width:64px;padding:4px 5px;
+  border:1px solid var(--border);border-radius:4px;
+  font-size:12px;font-weight:600;
+  text-align:center;
+  background:var(--surface4);
+  color:var(--text);
+  font-family:'Nunito',sans-serif;
+}
+.ct input:focus{outline:none;border-color:var(--mint)}
+.ct .warn{border-color:#F87171!important;background:rgba(239,68,68,0.1)!important}
+
+/* ── Mix rows ── */
+.mrow{
+  display:grid;grid-template-columns:1fr 110px 32px;
+  gap:8px;align-items:end;margin-bottom:8px;
+  padding:12px;
+  background:var(--surface3);
+  border:1px solid var(--border);
+  border-radius:8px;
+}
+.pct-bar{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;font-weight:700}
+.pct-ok{color:var(--mint)}
+.pct-warn{color:var(--orange)}
+
+/* ── Form footer ── */
+.ffooter{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:14px 24px;
+  border-top:1px solid var(--border);
+  background:var(--black);
+}
+
+/* ── Alerts ── */
+.alert{
+  padding:10px 14px;border-radius:6px;
+  font-size:12px;font-weight:700;
+  margin-bottom:16px;
+}
+.a-info{
+  background:rgba(144,238,130,0.07);
+  color:var(--text-dim);
+  border-left:3px solid var(--mint);
+}
+.a-warn{
+  background:rgba(245,146,30,0.1);
+  color:var(--orange);
+  border-left:3px solid var(--orange);
+}
+
+/* ── Empty state ── */
+.empty{text-align:center;padding:50px 20px;color:var(--text-muted)}
+.empty .ico{font-size:40px;margin-bottom:10px;opacity:.5}
+.empty p{font-size:13px;font-weight:600;line-height:1.7}
+
+/* ── Modal ── */
+.overlay{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.75);
+  display:flex;align-items:center;justify-content:center;z-index:999;
+  backdrop-filter:blur(3px);
+}
+.modal{
+  background:var(--surface2);
+  border:1px solid var(--border2);
+  border-radius:12px;padding:24px;
+  width:440px;max-width:95vw;
+  box-shadow:0 24px 80px rgba(0,0,0,.7);
+}
+.modal h3{
+  font-size:15px;font-weight:900;
+  margin-bottom:18px;color:var(--text);
+  text-transform:uppercase;letter-spacing:.5px;
+}
+.modal .fg{margin-bottom:12px}
+.mfooter{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}
+
+/* ── Print ── */
+@media print{
+  .sidebar,.hdr,.ffooter,.tabs,.iBtn,.btn,.action-nb,.add-btn,.rm-btn,.search,.card-hdr .btn,.mrow-del,
+  .no-print{display:none!important}
+  body,html{height:auto;overflow:visible;background:#fff;color:#000}
+  .main{padding:10px;background:#fff}
+  .fcard{box-shadow:none;border-radius:0;max-width:100%;background:#fff;border:none}
+  .fcard-hdr{background:#000!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .fg label{color:#000}
+  .fg input,.fg select,.fg textarea{background:#fff;color:#000;border-color:#ccc}
+  .fg input[readonly]{background:#f5f5f5;color:#000}
+  table th{background:#f0f0f0!important;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .ct th{background:#f0f0f0!important;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .fbody{padding:12px 16px}
+  .card{display:none}
+  .stats{display:none}
+  .fcard{display:block!important}
+  td,th{color:#000;border-color:#ddd}
+  .code{background:#f5f5f5;color:#000;border-color:#ccc}
+  .sh{color:#000;border-color:#ccc}
+  .badge{background:#eee;color:#000;border:1px solid #ccc}
+}
+
+/* ── Provnr Sync Panel ── */
+.sync-panel{
+  background:rgba(144,238,130,0.05);
+  border:1px solid var(--border2);
+  border-radius:8px;
+  padding:14px 16px;
+  margin-bottom:20px;
+}
+.sync-panel .sync-title{
+  font-size:10px;font-weight:900;
+  text-transform:uppercase;letter-spacing:1.5px;
+  color:var(--mint);margin-bottom:10px;
+}
+.sync-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sync-input{
+  flex:1;min-width:180px;
+  padding:7px 12px;
+  border:1px solid var(--border2);
+  border-radius:6px;
+  background:var(--surface3);
+  color:var(--text);
+  font-size:13px;font-weight:600;
+  font-family:'Nunito',sans-serif;
+}
+.sync-input:focus{outline:none;border-color:var(--mint)}
+.sync-input::placeholder{color:var(--text-muted)}
+.btn-sync{
+  background:var(--mint);color:#000;
+  border:none;border-radius:6px;
+  padding:7px 16px;
+  font-size:12px;font-weight:800;
+  cursor:pointer;font-family:'Nunito',sans-serif;
+  white-space:nowrap;
+  transition:background .15s;
+}
+.btn-sync:hover{background:var(--mint-dim)}
+.btn-sync:disabled{opacity:.5;cursor:not-allowed}
+.sync-status{
+  font-size:12px;font-weight:700;
+  margin-top:10px;padding:8px 12px;
+  border-radius:6px;
+  display:none;
+}
+.sync-ok{background:rgba(144,238,130,0.1);color:var(--mint);border-left:3px solid var(--mint)}
+.sync-err{background:rgba(239,68,68,0.1);color:#F87171;border-left:3px solid #F87171}
+.sync-field{color:var(--text-dim)}
+
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── Header ── -->
+  <div class="hdr">
+    <div class="hdr-brand">
+      <!-- Leaf-in-circle wordmark approximation -->
+      <div class="hdr-logo">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="11" cy="11" r="10.5" stroke="#90EE82" stroke-width="1"/>
+          <path d="M11 16c-3-2-5-5-3-8 1-1.5 3-2 5-1.5-.5 2-1 3.5 0 5 .5.8 1.2 1.5 2 2-1 .5-2.5 1.5-4 2.5z" fill="#5B7A3D"/>
+          <path d="M11 16c1-2.5 3-4 4-6.5-.5 3-1 5-4 6.5z" fill="#90EE82"/>
+        </svg>
+        provnr
+      </div>
+      <div class="hdr-divider"></div>
+      <div class="hdr-product">Fine · Lot Registry</div>
+    </div>
+    <div class="hdr-right">
+      <span class="org-pill" onclick="openSettings()" title="Click to change org code">Org: <strong id="orgDisplay">ACAC</strong></span>
+      <button class="btn btn-s btn-sm no-print" onclick="exportCSV()">↓ Export CSV</button>
+    </div>
+  </div>
+
+  <div class="body">
+
+    <!-- ── Sidebar ── -->
+    <div class="sidebar">
+      <div class="sb-label">Views</div>
+      <button class="nb active" id="nb-dash" onclick="navigate('dashboard')">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </button>
+      <button class="nb" id="nb-lots" onclick="navigate('lots')">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
+        Lotes
+      </button>
+      <button class="nb" id="nb-mixes" onclick="navigate('mixes')">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4"/></svg>
+        Mezclas
+      </button>
+      <hr class="sb-divider">
+      <div class="sb-label">Actions</div>
+      <button class="action-nb hi" onclick="navigate('new-lot')">+ Nuevo Lote</button>
+      <button class="action-nb" onclick="navigate('new-mix')">+ Nueva Mezcla</button>
+      <hr class="sb-divider">
+      <button class="action-nb" onclick="exportCSV()">↓ Exportar CSV</button>
+    </div>
+
+    <!-- ── Main ── -->
+    <div class="main" id="main"></div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="overlay" id="settingsModal" style="display:none">
+  <div class="modal">
+    <h3>⚙ Configuración</h3>
+    <div class="fg"><label>Código de Organización</label>
+      <input id="s-orgCode" maxlength="6" style="text-transform:uppercase" placeholder="ej. ACAC">
+      <span class="hint">Máx. 6 caracteres · Aparece en todos los códigos de lote</span></div>
+    <div class="fg"><label>Nombre de la Asociación</label><input id="s-assocName" placeholder="Nombre completo"></div>
+    <div class="fg"><label>RUT / NIT</label><input id="s-rut" placeholder="Pendiente"></div>
+    <div class="fg"><label>N.° Registro ICA</label><input id="s-ica" placeholder="Pendiente"></div>
+    <div class="mfooter">
+      <button class="btn btn-s" onclick="closeModal('settingsModal')">Cancelar</button>
+      <button class="btn btn-p" onclick="saveSettings()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Delete Modal -->
+<div class="overlay" id="deleteModal" style="display:none">
+  <div class="modal">
+    <h3>Confirmar eliminación</h3>
+    <p style="margin-bottom:16px;font-size:13px;font-weight:600;color:var(--text-dim)">¿Eliminar este lote permanentemente? Esta acción no se puede deshacer.</p>
+    <div class="mfooter">
+      <button class="btn btn-s" onclick="closeModal('deleteModal')">Cancelar</button>
+      <button class="btn btn-d" onclick="confirmDelete()">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+const S = {
+  view: 'dashboard',
+  editId: null,
+  tab: 0,
+  search: '',
+  deleteTarget: null,
+  settings: { orgCode:'ACAC', assocName:'', rut:'', ica:'' },
+  lots: []
+};
+
+// ─── Persistence ──────────────────────────────────────────────────────────────
+function persist() {
+  localStorage.setItem('cacao_lots', JSON.stringify(S.lots));
+  localStorage.setItem('cacao_settings', JSON.stringify(S.settings));
+}
+function loadData() {
+  try { S.lots = JSON.parse(localStorage.getItem('cacao_lots') || '[]'); } catch(e) { S.lots = []; }
+  try { const s = JSON.parse(localStorage.getItem('cacao_settings')); if(s) Object.assign(S.settings, s); } catch(e) {}
+  document.getElementById('orgDisplay').textContent = S.settings.orgCode;
+}
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
+function isoWeek(dateStr) {
+  const d = dateStr ? new Date(dateStr + 'T00:00:00') : new Date();
+  const jan4 = new Date(d.getFullYear(), 0, 4);
+  const start = new Date(jan4);
+  start.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7));
+  const diff = d - start;
+  const wk = Math.floor(diff / 864e5 / 7) + 1;
+  const yr = d.getFullYear();
+  return { yr: String(yr).slice(2), wk: String(wk).padStart(2,'0') };
+}
+function nextSeq(prefix) {
+  const existing = S.lots.filter(l => l.id.startsWith(prefix));
+  const nums = existing.map(l => parseInt(l.id.split('-').pop()) || 0);
+  return String(Math.max(0, ...nums) + 1).padStart(3,'0');
+}
+function genLotCode(dateStr) {
+  const {yr, wk} = isoWeek(dateStr);
+  const prefix = `${S.settings.orgCode}-${yr}-${wk}`;
+  return `${prefix}-${nextSeq(prefix)}`;
+}
+function genMixCode(dateStr) {
+  const {yr, wk} = isoWeek(dateStr || undefined);
+  const prefix = `${S.settings.orgCode}-MIX-${yr}-${wk}`;
+  return `${prefix}-${nextSeq(prefix)}`;
+}
+function daysBetween(a, b) {
+  if (!a || !b) return '';
+  const d = Math.round((new Date(b) - new Date(a)) / 864e5);
+  return d >= 0 ? d : '';
+}
+function statusLabel(s) {
+  const m = {registered:'Registrado',processing:'En proceso',quality:'Control calidad',packed:'Empacado',dispatched:'Despachado'};
+  return m[s] || s;
+}
+function statusClass(s) {
+  const m = {registered:'b-reg',processing:'b-proc',quality:'b-qual',packed:'b-pack',dispatched:'b-disp'};
+  return m[s] || 'b-reg';
+}
+function escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function today() { return new Date().toISOString().slice(0,10); }
+
+// ─── Navigation ───────────────────────────────────────────────────────────────
+function navigate(view, id) {
+  S.view = view; S.editId = id || null; S.tab = 0; S.search = '';
+  ['dash','lots','mixes'].forEach(k => {
+    const el = document.getElementById(`nb-${k}`);
+    if (el) el.classList.toggle('active', view === k || (k==='lots' && ['new-lot','edit-lot'].includes(view)) || (k==='mixes' && ['new-mix','edit-mix'].includes(view)));
+  });
+  render();
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function render() {
+  const m = document.getElementById('main');
+  if (S.view === 'dashboard') m.innerHTML = renderDashboard();
+  else if (S.view === 'lots') m.innerHTML = renderLotList();
+  else if (S.view === 'mixes') m.innerHTML = renderMixList();
+  else if (S.view === 'new-lot') m.innerHTML = renderLotForm(null);
+  else if (S.view === 'edit-lot') m.innerHTML = renderLotForm(S.editId);
+  else if (S.view === 'new-mix') m.innerHTML = renderMixForm(null);
+  else if (S.view === 'edit-mix') m.innerHTML = renderMixForm(S.editId);
+}
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+function renderDashboard() {
+  const lots = S.lots.filter(l => l.type === 'lot');
+  const mixes = S.lots.filter(l => l.type === 'mix');
+  const dispatched = S.lots.filter(l => l.status === 'dispatched');
+  const recent = [...S.lots].sort((a,b) => (b.createdAt||'') > (a.createdAt||'') ? 1 : -1).slice(0, 8);
+  return `
+  <div class="stats">
+    <div class="sc"><div class="n">${lots.length}</div><div class="l">Lotes registrados</div></div>
+    <div class="sc"><div class="n">${mixes.length}</div><div class="l">Mezclas</div></div>
+    <div class="sc"><div class="n">${dispatched.length}</div><div class="l">Despachados</div></div>
+    <div class="sc"><div class="n">${S.lots.filter(l=>l.status==='processing').length}</div><div class="l">En proceso</div></div>
+  </div>
+  <div class="card">
+    <div class="card-hdr"><h2>Actividad reciente</h2>
+      <button class="btn btn-p btn-sm" onclick="navigate('new-lot')">+ Nuevo Lote</button>
+    </div>
+    ${recent.length === 0 ? `<div class="empty"><div class="ico">◈</div><p>No hay lotes todavía.<br>Comienza registrando el primer lote.</p></div>` :
+    `<table><thead><tr>
+      <th>Código de lote</th><th>Finca / Productor</th><th>Variedades</th><th>Peso neto</th><th>Estado</th><th>Cosecha</th><th></th>
+    </tr></thead><tbody>
+    ${recent.map(l => `<tr onclick="navigate('${l.type==='mix'?'edit-mix':'edit-lot'}','${l.id}')">
+      <td><span class="code ${l.type==='mix'?'mix-code':''}">${escH(l.id)}</span></td>
+      <td>${escH(l.type==='mix' ? '(Mezcla)' : l.farmName||'—')}</td>
+      <td style="font-size:12px">${escH(l.type==='mix' ? (l.componentLots||[]).map(c=>c.lotId).join(' + ') : (l.varieties||[]).map(v=>v.name+' '+v.pct+'%').join(' · '))}</td>
+      <td>${escH(l.netWeight ? l.netWeight+' kg' : '—')}</td>
+      <td><span class="badge ${statusClass(l.status)}">${statusLabel(l.status)}</span></td>
+      <td>${escH(l.harvestDate||l.createdAt?.slice(0,10)||'—')}</td>
+      <td onclick="event.stopPropagation()">
+        <button class="iBtn" title="Editar" onclick="navigate('${l.type==='mix'?'edit-mix':'edit-lot'}','${l.id}')">✏</button>
+        <button class="iBtn" title="Eliminar" onclick="promptDelete('${l.id}')">✕</button>
+      </td>
+    </tr>`).join('')}
+    </tbody></table>`}
+  </div>`;
+}
+
+// ─── Lot List ─────────────────────────────────────────────────────────────────
+function renderLotList() {
+  const q = S.search.toLowerCase();
+  const items = S.lots.filter(l => l.type==='lot' && (!q || l.id.toLowerCase().includes(q) || (l.farmName||'').toLowerCase().includes(q)));
+  return `
+  <div class="card">
+    <div class="card-hdr"><h2>Lotes de cacao (${items.length})</h2>
+      <div style="display:flex;gap:8px">
+        <input class="search" placeholder="Buscar lote o finca…" oninput="S.search=this.value;render()" value="${escH(S.search)}">
+        <button class="btn btn-p btn-sm" onclick="navigate('new-lot')">+ Nuevo</button>
+      </div>
+    </div>
+    ${items.length === 0 ? `<div class="empty"><div class="ico">◈</div><p>No hay lotes${q?' que coincidan con la búsqueda':''}</p></div>` :
+    `<table><thead><tr><th>Código</th><th>Finca</th><th>Municipio</th><th>Variedades</th><th>Peso neto</th><th>Humedad</th><th>Estado</th><th></th></tr></thead><tbody>
+    ${items.map(l=>`<tr onclick="navigate('edit-lot','${l.id}')">
+      <td><span class="code">${escH(l.id)}</span></td>
+      <td>${escH(l.farmName||'—')}</td><td>${escH(l.municipality||'—')}</td>
+      <td style="font-size:12px">${escH((l.varieties||[]).map(v=>v.name+(v.pct?` ${v.pct}%`:'')).join(' · ')||'—')}</td>
+      <td>${escH(l.netWeight?l.netWeight+' kg':'—')}</td>
+      <td>${escH(l.finalMoisture?l.finalMoisture+'%':'—')}</td>
+      <td><span class="badge ${statusClass(l.status)}">${statusLabel(l.status)}</span></td>
+      <td onclick="event.stopPropagation()">
+        <button class="iBtn" onclick="navigate('edit-lot','${l.id}')">✏</button>
+        <button class="iBtn" onclick="promptDelete('${l.id}')">✕</button>
+      </td>
+    </tr>`).join('')}
+    </tbody></table>`}
+  </div>`;
+}
+
+// ─── Mix List ─────────────────────────────────────────────────────────────────
+function renderMixList() {
+  const q = S.search.toLowerCase();
+  const items = S.lots.filter(l => l.type==='mix' && (!q || l.id.toLowerCase().includes(q)));
+  return `
+  <div class="card">
+    <div class="card-hdr"><h2>Mezclas (${items.length})</h2>
+      <div style="display:flex;gap:8px">
+        <input class="search" placeholder="Buscar mezcla…" oninput="S.search=this.value;render()" value="${escH(S.search)}">
+        <button class="btn btn-p btn-sm" onclick="navigate('new-mix')">+ Nueva</button>
+      </div>
+    </div>
+    ${items.length === 0 ? `<div class="empty"><div class="ico">◈</div><p>No hay mezclas todavía</p></div>` :
+    `<table><thead><tr><th>Código mezcla</th><th>Lotes componentes</th><th>Peso total</th><th>Destino</th><th>Estado</th><th></th></tr></thead><tbody>
+    ${items.map(l=>`<tr onclick="navigate('edit-mix','${l.id}')">
+      <td><span class="code mix-code">${escH(l.id)}</span></td>
+      <td style="font-size:12px">${escH((l.componentLots||[]).map(c=>c.lotId+(c.pct?` ${c.pct}%`:'')).join(' · ')||'—')}</td>
+      <td>${escH(l.netWeight?l.netWeight+' kg':'—')}</td>
+      <td>${escH(l.buyer||'—')}</td>
+      <td><span class="badge ${statusClass(l.status)}">${statusLabel(l.status)}</span></td>
+      <td onclick="event.stopPropagation()">
+        <button class="iBtn" onclick="navigate('edit-mix','${l.id}')">✏</button>
+        <button class="iBtn" onclick="promptDelete('${l.id}')">✕</button>
+      </td>
+    </tr>`).join('')}
+    </tbody></table>`}
+  </div>`;
+}
+
+// ─── Lot Form ─────────────────────────────────────────────────────────────────
+function renderLotForm(id) {
+  const lot = id ? S.lots.find(l=>l.id===id) : null;
+  const isNew = !lot;
+  const doneSteps = lot ? stepsDone(lot) : [];
+  const tabs = ['1. Registro','2. Fermentación & Secado','3. Prueba de Corte','4. Empaque'];
+  const tabsHtml = tabs.map((t,i)=>`<button class="tab ${S.tab===i?'active':''} ${doneSteps.includes(i)?'done':''}" onclick="S.tab=${i};render()">${t}</button>`).join('');
+  const lotCode = lot ? lot.id : '—';
+  return `
+  <div class="fcard">
+    <div class="fcard-hdr">
+      <h2>${isNew ? 'Registrar nuevo lote' : 'Editar lote'}</h2>
+      <p>Theobroma cacao L. — ${S.settings.assocName || S.settings.orgCode} · Fine Verified Lot</p>
+      <div class="code-box">
+        <span class="tiny">Lot ID</span>
+        <span class="big" id="lotCodeDisplay">${escH(lotCode)}</span>
+      </div>
+    </div>
+    <div class="tabs">${tabsHtml}</div>
+    <div class="fbody" id="tabBody">${renderTab(lot, S.tab)}</div>
+    <div class="ffooter">
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-s" onclick="navigate('lots')">← Volver</button>
+        ${!isNew ? `<button class="btn btn-d btn-sm" onclick="promptDelete('${lot.id}')">Eliminar</button>` : ''}
+      </div>
+      <div style="display:flex;gap:8px">
+        ${!isNew ? `<button class="btn btn-e btn-sm no-print" onclick="window.print()">🖨 Imprimir</button>` : ''}
+        <button class="btn btn-p" onclick="saveLotForm('${id||''}')">Guardar lote</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function stepsDone(lot) {
+  const done = [];
+  if (lot.farmName || lot.harvestDate) done.push(0);
+  if (lot.fermentStart || lot.dryMethod) done.push(1);
+  if (lot.cutDate || (lot.cutRows && lot.cutRows.length)) done.push(2);
+  if (lot.bagCount || lot.buyer) done.push(3);
+  return done;
+}
+
+function renderTab(lot, tab) {
+  const l = lot || {};
+  const vars = (l.varieties && l.varieties.length) ? l.varieties : [{name:'',pct:''}];
+  if (tab === 0) return `
+    <div class="sync-panel">
+      <div class="sync-title">⟳ Sincronizar desde Provnr App</div>
+      <div class="sync-row">
+        <input class="sync-input" id="syncLotName" placeholder="Nombre del lote (ej. finca-la-esperanza-001)" />
+        <button class="btn-sync" id="syncBtn" onclick="syncFromProvnr()">Sincronizar</button>
+      </div>
+      <div class="sync-status" id="syncStatus"></div>
+    </div>
+    <div class="sh">Información del lote</div>
+    <div class="alert a-info">El código de lote se genera automáticamente al ingresar la fecha de cosecha y el código de organización.</div>
+    <div class="frow f3">
+      <div class="fg"><label>Fecha de cosecha *</label>
+        <input type="date" id="f-harvestDate" value="${escH(l.harvestDate||'')}" oninput="updateCodePreview(this.value)">
+      </div>
+      <div class="fg"><label>Código de lote (auto)</label>
+        <input type="text" id="f-lotCodePreview" readonly value="${escH(l.id||'')}">
+        <span class="hint">Formato: ${S.settings.orgCode}-AA-SS-SEQ</span>
+      </div>
+      <div class="fg"><label>Estado</label>
+        <select id="f-status">
+          ${['registered','processing','quality','packed','dispatched'].map(s=>`<option value="${s}" ${(l.status||'registered')===s?'selected':''}>${statusLabel(s)}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="sh">Finca y productor</div>
+    <div class="frow f3">
+      <div class="fg"><label>Nombre de la finca</label><input id="f-farmName" value="${escH(l.farmName||'')}"></div>
+      <div class="fg"><label>Municipio</label><input id="f-municipality" value="${escH(l.municipality||'')}"></div>
+      <div class="fg"><label>Departamento</label><input id="f-department" value="${escH(l.department||'')}"></div>
+    </div>
+    <div class="frow f3">
+      <div class="fg"><label>Altitud (m.s.n.m.)</label><input type="number" id="f-altitude" value="${escH(l.altitude||'')}"></div>
+      <div class="fg"><label>Productor / Contacto</label><input id="f-producer" value="${escH(l.producer||'')}"></div>
+      <div class="fg"><label>Técnico responsable</label><input id="f-technician0" value="${escH(l.technician0||'')}"></div>
+    </div>
+    <div class="sh">Variedades</div>
+    <div id="varRows">
+      ${vars.map((v,i)=>`<div class="vrow">
+        <div class="fg"><label>Variedad ${i+1}</label><input id="var-name-${i}" value="${escH(v.name||'')}" placeholder="ej. Regional Criollo"></div>
+        <div class="fg"><label>% en mezcla</label><input type="number" id="var-pct-${i}" min="0" max="100" value="${escH(v.pct||'')}"></div>
+        <button class="rm-btn" onclick="removeVar(${i})" ${vars.length===1?'style="visibility:hidden"':''}>×</button>
+      </div>`).join('')}
+    </div>
+    <button class="add-btn" onclick="addVar()">+ Agregar variedad</button>
+    <div class="sh" style="margin-top:18px">Pesos</div>
+    <div class="frow f3">
+      <div class="fg"><label>Peso bruto (kg)</label><input type="number" id="f-grossWeight" value="${escH(l.grossWeight||'')}"></div>
+      <div class="fg"><label>Peso neto (kg)</label><input type="number" id="f-netWeight" value="${escH(l.netWeight||'')}"></div>
+      <div class="fg"><label>N.° de sacos</label><input type="number" id="f-bagCountReg" value="${escH(l.bagCountReg||'')}"></div>
+    </div>`;
+
+  if (tab === 1) return `
+    <div class="sh">Fermentación</div>
+    <div class="frow f4">
+      <div class="fg"><label>Inicio fermentación</label><input type="date" id="f-fermentStart" value="${escH(l.fermentStart||'')}" oninput="calcDays('ferment')"></div>
+      <div class="fg"><label>Fin fermentación</label><input type="date" id="f-fermentEnd" value="${escH(l.fermentEnd||'')}" oninput="calcDays('ferment')"></div>
+      <div class="fg"><label>Días fermentación</label><input type="number" id="f-fermentDays" value="${escH(l.fermentDays||'')}" readonly></div>
+      <div class="fg"><label>N.° remociones</label><input type="number" id="f-turns" value="${escH(l.turns||'')}"></div>
+    </div>
+    <div class="frow f2">
+      <div class="fg"><label>Tipo de fermentador</label>
+        <select id="f-fermentorType">
+          <option value="">— Seleccionar —</option>
+          ${['Cajón de madera','Bidón plástico','Saco de polipropileno','Caja de guadua','Otro'].map(o=>`<option ${l.fermentorType===o?'selected':''}>${o}</option>`).join('')}
+        </select>
+      </div>
+      <div class="fg"><label>Observaciones de fermentación</label><input id="f-fermentNotes" value="${escH(l.fermentNotes||'')}"></div>
+    </div>
+    <div class="sh">Secado</div>
+    <div class="frow f4">
+      <div class="fg"><label>Inicio secado</label><input type="date" id="f-dryStart" value="${escH(l.dryStart||'')}" oninput="calcDays('dry')"></div>
+      <div class="fg"><label>Fin secado</label><input type="date" id="f-dryEnd" value="${escH(l.dryEnd||'')}" oninput="calcDays('dry')"></div>
+      <div class="fg"><label>Días secado</label><input type="number" id="f-dryDays" value="${escH(l.dryDays||'')}" readonly></div>
+      <div class="fg"><label>Humedad final (%)</label><input type="number" step="0.1" id="f-finalMoisture" value="${escH(l.finalMoisture||'')}" placeholder="≤ 7.5"></div>
+    </div>
+    <div class="frow f2">
+      <div class="fg"><label>Método de secado</label>
+        <select id="f-dryMethod">
+          <option value="">— Seleccionar —</option>
+          ${['Solar directo','Marquesina','Secador mecánico','Combinado (solar + mecánico)','Otro'].map(o=>`<option ${l.dryMethod===o?'selected':''}>${o}</option>`).join('')}
+        </select>
+      </div>
+      <div class="fg"><label>Observaciones de secado</label><input id="f-dryNotes" value="${escH(l.dryNotes||'')}"></div>
+    </div>`;
+
+  if (tab === 2) {
+    const vNames = (l.varieties||[{name:'Variedad 1'}]).filter(v=>v.name).map(v=>v.name);
+    const colHeaders = [...vNames, 'Mezcla', 'Ref. NTC 1252'];
+    const refs = ['≥ 65 %','≤ 10 %','≤ 10 %','≤ 4 %','≤ 3 %','≤ 1 %','≤ 2 %','≥ 1.2 g'];
+    const params = ['Bien fermentados (%)','Mediamente fermentados (%)','Violeta / pizarroso (%)','Mohosos internos (%)','Germinados (%)','Insectados (%)','Planos / vanos (%)','Índice de grano (g/grano)'];
+    const paramKeys = ['wellFermented','partial','violet','moldy','germinated','insected','flat','grainIndex'];
+    const rows = l.cutRows || [];
+    return `
+    <div class="sh">Prueba de corte — 100 granos</div>
+    <div class="frow f2">
+      <div class="fg"><label>Fecha de la prueba</label><input type="date" id="f-cutDate" value="${escH(l.cutDate||'')}"></div>
+      <div class="fg"><label>Evaluador / Técnico</label><input id="f-cutTech" value="${escH(l.cutTech||'')}"></div>
+    </div>
+    <div class="ct-wrap">
+    <table class="ct"><thead><tr>
+      <th class="left">Parámetro</th>
+      ${colHeaders.map(h=>`<th>${escH(h)}</th>`).join('')}
+    </tr></thead><tbody>
+    ${params.map((p,pi)=>`<tr>
+      <td class="param">${p}</td>
+      ${vNames.map((_,vi)=>`<td><input type="number" min="0" max="${pi<7?100:10}" step="${pi===7?'0.01':'1'}" id="ct-v${vi}-${paramKeys[pi]}" value="${escH((rows[vi]||{})[paramKeys[pi]]||'')}"></td>`).join('')}
+      <td><input type="number" min="0" step="${pi===7?'0.01':'1'}" id="ct-blend-${paramKeys[pi]}" value="${escH((l.cutBlend||{})[paramKeys[pi]]||'')}"></td>
+      <td class="ref">${refs[pi]}</td>
+    </tr>`).join('')}
+    </tbody></table></div>
+    <div class="frow f1" style="margin-top:14px">
+      <div class="fg"><label>Observaciones sensoriales</label><textarea id="f-sensorNotes">${escH(l.sensorNotes||'')}</textarea></div>
+    </div>`;
+  }
+
+  if (tab === 3) return `
+    <div class="sh">Empaque</div>
+    <div class="frow f4">
+      <div class="fg"><label>N.° de sacos</label><input type="number" id="f-bagCount" value="${escH(l.bagCount||'')}" oninput="calcNetWeight()"></div>
+      <div class="fg"><label>Peso por saco (kg)</label><input type="number" step="0.1" id="f-bagWeight" value="${escH(l.bagWeight||'')}" oninput="calcNetWeight()"></div>
+      <div class="fg"><label>Peso neto total (kg)</label><input type="number" step="0.1" id="f-packNetWeight" value="${escH(l.packNetWeight||'')}" readonly></div>
+      <div class="fg"><label>Tipo de empaque</label>
+        <select id="f-packType">
+          <option value="">— Seleccionar —</option>
+          ${['Saco de fique/yute','Saco de polipropileno ventilado','Saco de polipropileno liner','Otro'].map(o=>`<option ${l.packType===o?'selected':''}>${o}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="sh">Despacho</div>
+    <div class="frow f3">
+      <div class="fg"><label>Comprador / Destino</label><input id="f-buyer" value="${escH(l.buyer||'')}"></div>
+      <div class="fg"><label>Fecha de despacho</label><input type="date" id="f-dispatchDate" value="${escH(l.dispatchDate||'')}"></div>
+      <div class="fg"><label>Referencia de transporte</label><input id="f-transportRef" value="${escH(l.transportRef||'')}"></div>
+    </div>
+    <div class="frow f1">
+      <div class="fg"><label>Observaciones</label><textarea id="f-observations">${escH(l.observations||'')}</textarea></div>
+    </div>`;
+}
+
+// ─── Mix Form ─────────────────────────────────────────────────────────────────
+function renderMixForm(id) {
+  const mix = id ? S.lots.find(l=>l.id===id) : null;
+  const isNew = !mix;
+  const m = mix || {};
+  const components = (m.componentLots && m.componentLots.length) ? m.componentLots : [{lotId:'',pct:''}];
+  const availLots = S.lots.filter(l=>l.type==='lot');
+  const totalPct = components.reduce((s,c)=>s+(parseFloat(c.pct)||0),0);
+  const pctOk = Math.abs(totalPct-100) < 0.01;
+  const mixCode = mix ? mix.id : '—';
+  return `
+  <div class="fcard">
+    <div class="fcard-hdr">
+      <h2>${isNew ? 'Registrar nueva mezcla' : 'Editar mezcla'}</h2>
+      <p>Mezcla de lotes — ${S.settings.assocName || S.settings.orgCode} · Fine Verified Mix</p>
+      <div class="code-box">
+        <span class="tiny">Mix ID</span>
+        <span class="big" style="color:var(--orange)">${escH(mixCode)}</span>
+      </div>
+    </div>
+    <div class="fbody">
+      <div class="sh">Lotes componentes</div>
+      <div class="alert a-info">Seleccione los lotes y asigne el porcentaje de cada uno. La suma debe ser exactamente 100%.</div>
+      <div id="mixRows">
+      ${components.map((c,i)=>`<div class="mrow" id="mrow-${i}">
+        <div class="fg"><label>Lote ${i+1}</label>
+          <select id="mix-lot-${i}" onchange="recalcMixWeight()">
+            <option value="">— Seleccionar lote —</option>
+            ${availLots.map(l=>`<option value="${l.id}" ${c.lotId===l.id?'selected':''}>${l.id}${l.farmName?' · '+l.farmName:''}</option>`).join('')}
+          </select>
+        </div>
+        <div class="fg"><label>Porcentaje (%)</label>
+          <input type="number" min="0" max="100" id="mix-pct-${i}" value="${escH(c.pct||'')}" oninput="recalcPct()">
+        </div>
+        <button class="rm-btn mrow-del" onclick="removeMixRow(${i})" ${components.length===1?'style="visibility:hidden"':''}>×</button>
+      </div>`).join('')}
+      </div>
+      <div class="pct-bar">
+        Total: <span id="pctTotal" class="${pctOk?'pct-ok':'pct-warn'}">${totalPct.toFixed(1)}%</span>
+        <span style="color:var(--text-muted);font-size:12px">(debe ser 100%)</span>
+      </div>
+      <button class="add-btn" style="margin-top:10px" onclick="addMixRow()">+ Agregar lote</button>
+
+      <div class="sh" style="margin-top:22px">Resultado de la mezcla</div>
+      <div class="frow f3">
+        <div class="fg"><label>Peso neto total (kg)</label><input type="number" step="0.1" id="mix-netWeight" value="${escH(m.netWeight||'')}" readonly></div>
+        <div class="fg"><label>N.° de sacos</label><input type="number" id="mix-bagCount" value="${escH(m.bagCount||'')}"></div>
+        <div class="fg"><label>Estado</label>
+          <select id="mix-status">
+            ${['registered','processing','quality','packed','dispatched'].map(s=>`<option value="${s}" ${(m.status||'registered')===s?'selected':''}>${statusLabel(s)}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="frow f3">
+        <div class="fg"><label>Comprador / Destino</label><input id="mix-buyer" value="${escH(m.buyer||'')}"></div>
+        <div class="fg"><label>Fecha de despacho</label><input type="date" id="mix-dispatchDate" value="${escH(m.dispatchDate||'')}"></div>
+        <div class="fg"><label>Referencia de transporte</label><input id="mix-transportRef" value="${escH(m.transportRef||'')}"></div>
+      </div>
+      <div class="frow f1">
+        <div class="fg"><label>Observaciones</label><textarea id="mix-observations">${escH(m.observations||'')}</textarea></div>
+      </div>
+    </div>
+    <div class="ffooter">
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-s" onclick="navigate('mixes')">← Volver</button>
+        ${!isNew ? `<button class="btn btn-d btn-sm" onclick="promptDelete('${mix.id}')">Eliminar</button>` : ''}
+      </div>
+      <button class="btn btn-p" onclick="saveMixForm('${id||''}')">Guardar mezcla</button>
+    </div>
+  </div>`;
+}
+
+// ─── Variety helpers ──────────────────────────────────────────────────────────
+function getVarsFromForm() {
+  const vars = [];
+  let i = 0;
+  while (document.getElementById(`var-name-${i}`) !== null) {
+    vars.push({ name: document.getElementById(`var-name-${i}`).value.trim(), pct: document.getElementById(`var-pct-${i}`).value });
+    i++;
+  }
+  return vars;
+}
+function addVar() {
+  const vars = getVarsFromForm();
+  vars.push({name:'',pct:''});
+  const idx = vars.length - 1;
+  const row = document.createElement('div');
+  row.className = 'vrow';
+  row.innerHTML = `
+    <div class="fg"><label>Variedad ${idx+1}</label><input id="var-name-${idx}" placeholder="ej. CCN-51"></div>
+    <div class="fg"><label>% en mezcla</label><input type="number" id="var-pct-${idx}" min="0" max="100"></div>
+    <button class="rm-btn" onclick="removeVar(${idx})">×</button>`;
+  document.getElementById('varRows').appendChild(row);
+}
+function removeVar(i) {
+  const vars = getVarsFromForm();
+  if (vars.length <= 1) return;
+  vars.splice(i,1);
+  document.getElementById('varRows').innerHTML = vars.map((v,j)=>`<div class="vrow">
+    <div class="fg"><label>Variedad ${j+1}</label><input id="var-name-${j}" value="${escH(v.name)}" placeholder="ej. Regional Criollo"></div>
+    <div class="fg"><label>% en mezcla</label><input type="number" id="var-pct-${j}" min="0" max="100" value="${escH(v.pct)}"></div>
+    <button class="rm-btn" onclick="removeVar(${j})" ${vars.length===1?'style="visibility:hidden"':''}>×</button>
+  </div>`).join('');
+}
+
+// ─── Mix row helpers ──────────────────────────────────────────────────────────
+function getMixRowsFromForm() {
+  const rows = [];
+  let i = 0;
+  while (document.getElementById(`mix-lot-${i}`) !== null) {
+    rows.push({ lotId: document.getElementById(`mix-lot-${i}`).value, pct: document.getElementById(`mix-pct-${i}`).value });
+    i++;
+  }
+  return rows;
+}
+function addMixRow() {
+  const rows = getMixRowsFromForm();
+  const i = rows.length;
+  const avail = S.lots.filter(l=>l.type==='lot');
+  const div = document.createElement('div');
+  div.className = 'mrow'; div.id = `mrow-${i}`;
+  div.innerHTML = `
+    <div class="fg"><label>Lote ${i+1}</label>
+      <select id="mix-lot-${i}" onchange="recalcMixWeight()">
+        <option value="">— Seleccionar lote —</option>
+        ${avail.map(l=>`<option value="${l.id}">${l.id}${l.farmName?' · '+l.farmName:''}</option>`).join('')}
+      </select>
+    </div>
+    <div class="fg"><label>Porcentaje (%)</label><input type="number" min="0" max="100" id="mix-pct-${i}" oninput="recalcPct()"></div>
+    <button class="rm-btn mrow-del" onclick="removeMixRow(${i})">×</button>`;
+  document.getElementById('mixRows').appendChild(div);
+}
+function removeMixRow(i) {
+  const rows = getMixRowsFromForm();
+  if (rows.length <= 1) return;
+  rows.splice(i,1);
+  const avail = S.lots.filter(l=>l.type==='lot');
+  document.getElementById('mixRows').innerHTML = rows.map((r,j)=>`<div class="mrow" id="mrow-${j}">
+    <div class="fg"><label>Lote ${j+1}</label>
+      <select id="mix-lot-${j}" onchange="recalcMixWeight()">
+        <option value="">— Seleccionar lote —</option>
+        ${avail.map(l=>`<option value="${l.id}" ${r.lotId===l.id?'selected':''}>${l.id}${l.farmName?' · '+l.farmName:''}</option>`).join('')}
+      </select>
+    </div>
+    <div class="fg"><label>Porcentaje (%)</label><input type="number" min="0" max="100" id="mix-pct-${j}" value="${escH(r.pct)}" oninput="recalcPct()"></div>
+    <button class="rm-btn mrow-del" onclick="removeMixRow(${j})" ${rows.length===1?'style="visibility:hidden"':''}>×</button>
+  </div>`).join('');
+  recalcPct();
+}
+function recalcPct() {
+  const rows = getMixRowsFromForm();
+  const total = rows.reduce((s,r)=>s+(parseFloat(r.pct)||0),0);
+  const el = document.getElementById('pctTotal');
+  if (el) { el.textContent = total.toFixed(1)+'%'; el.className = Math.abs(total-100)<0.01?'pct-ok':'pct-warn'; }
+  recalcMixWeight();
+}
+function recalcMixWeight() {
+  const rows = getMixRowsFromForm();
+  let total = 0;
+  rows.forEach(r => {
+    const lot = S.lots.find(l=>l.id===r.lotId);
+    if (lot && lot.netWeight && r.pct) total += parseFloat(lot.netWeight) * parseFloat(r.pct) / 100;
+  });
+  const el = document.getElementById('mix-netWeight');
+  if (el && total > 0) el.value = total.toFixed(1);
+}
+
+// ─── Code preview ─────────────────────────────────────────────────────────────
+function updateCodePreview(dateStr) {
+  const el = document.getElementById('f-lotCodePreview');
+  const disp = document.getElementById('lotCodeDisplay');
+  if (!el) return;
+  if (!S.editId) {
+    const {yr, wk} = isoWeek(dateStr);
+    const prefix = `${S.settings.orgCode}-${yr}-${wk}`;
+    const code = `${prefix}-${nextSeq(prefix)}`;
+    el.value = code;
+    if (disp) disp.textContent = code;
+  }
+}
+
+// ─── Date calc helpers ────────────────────────────────────────────────────────
+function calcDays(type) {
+  const s = document.getElementById(`f-${type}Start`);
+  const e = document.getElementById(`f-${type}End`);
+  const d = document.getElementById(`f-${type}Days`);
+  if (s && e && d) d.value = daysBetween(s.value, e.value);
+}
+function calcNetWeight() {
+  const cnt = parseFloat(document.getElementById('f-bagCount')?.value||0);
+  const wt = parseFloat(document.getElementById('f-bagWeight')?.value||0);
+  const el = document.getElementById('f-packNetWeight');
+  if (el && cnt && wt) el.value = (cnt * wt).toFixed(1);
+}
+
+// ─── Save Lot ─────────────────────────────────────────────────────────────────
+function collectCutRows(varieties) {
+  const paramKeys = ['wellFermented','partial','violet','moldy','germinated','insected','flat','grainIndex'];
+  return varieties.map((_,vi) => {
+    const obj = {};
+    paramKeys.forEach(k => { const el = document.getElementById(`ct-v${vi}-${k}`); obj[k] = el ? el.value : ''; });
+    return obj;
+  });
+}
+function collectCutBlend() {
+  const paramKeys = ['wellFermented','partial','violet','moldy','germinated','insected','flat','grainIndex'];
+  const obj = {};
+  paramKeys.forEach(k => { const el = document.getElementById(`ct-blend-${k}`); obj[k] = el ? el.value : ''; });
+  return obj;
+}
+function saveLotForm(existingId) {
+  const harvestDate = document.getElementById('f-harvestDate')?.value;
+  const vars = getVarsFromForm();
+  let id;
+  if (existingId) {
+    id = existingId;
+  } else {
+    id = document.getElementById('f-lotCodePreview')?.value;
+    if (!id || id === '—') id = genLotCode(harvestDate || today());
+  }
+  const existing = S.lots.find(l=>l.id===id);
+  const base = existing || { id, type:'lot', createdAt: new Date().toISOString() };
+  const updated = Object.assign({}, base, {
+    harvestDate: document.getElementById('f-harvestDate')?.value || '',
+    status: document.getElementById('f-status')?.value || 'registered',
+    farmName: document.getElementById('f-farmName')?.value || '',
+    municipality: document.getElementById('f-municipality')?.value || '',
+    department: document.getElementById('f-department')?.value || '',
+    altitude: document.getElementById('f-altitude')?.value || '',
+    producer: document.getElementById('f-producer')?.value || '',
+    technician0: document.getElementById('f-technician0')?.value || '',
+    grossWeight: document.getElementById('f-grossWeight')?.value || '',
+    netWeight: document.getElementById('f-netWeight')?.value || '',
+    bagCountReg: document.getElementById('f-bagCountReg')?.value || '',
+    varieties: vars,
+    fermentStart: document.getElementById('f-fermentStart')?.value || '',
+    fermentEnd: document.getElementById('f-fermentEnd')?.value || '',
+    fermentDays: document.getElementById('f-fermentDays')?.value || '',
+    turns: document.getElementById('f-turns')?.value || '',
+    fermentorType: document.getElementById('f-fermentorType')?.value || '',
+    fermentNotes: document.getElementById('f-fermentNotes')?.value || '',
+    dryStart: document.getElementById('f-dryStart')?.value || '',
+    dryEnd: document.getElementById('f-dryEnd')?.value || '',
+    dryDays: document.getElementById('f-dryDays')?.value || '',
+    finalMoisture: document.getElementById('f-finalMoisture')?.value || '',
+    dryMethod: document.getElementById('f-dryMethod')?.value || '',
+    dryNotes: document.getElementById('f-dryNotes')?.value || '',
+    cutDate: document.getElementById('f-cutDate')?.value || '',
+    cutTech: document.getElementById('f-cutTech')?.value || '',
+    cutRows: collectCutRows(vars),
+    cutBlend: collectCutBlend(),
+    sensorNotes: document.getElementById('f-sensorNotes')?.value || '',
+    bagCount: document.getElementById('f-bagCount')?.value || '',
+    bagWeight: document.getElementById('f-bagWeight')?.value || '',
+    packNetWeight: document.getElementById('f-packNetWeight')?.value || '',
+    packType: document.getElementById('f-packType')?.value || '',
+    buyer: document.getElementById('f-buyer')?.value || '',
+    dispatchDate: document.getElementById('f-dispatchDate')?.value || '',
+    transportRef: document.getElementById('f-transportRef')?.value || '',
+    observations: document.getElementById('f-observations')?.value || '',
+    updatedAt: new Date().toISOString(),
+  });
+  if (existing) { const idx = S.lots.indexOf(existing); S.lots[idx] = updated; }
+  else S.lots.push(updated);
+  persist();
+  S.editId = id;
+  S.view = 'edit-lot';
+  render();
+  const hdr = document.querySelector('.fcard-hdr h2');
+  if (hdr) { const orig = hdr.textContent; hdr.textContent = '✓ Guardado'; setTimeout(()=>hdr.textContent=orig,1500); }
+}
+
+// ─── Save Mix ─────────────────────────────────────────────────────────────────
+function saveMixForm(existingId) {
+  const components = getMixRowsFromForm();
+  const pctTotal = components.reduce((s,c)=>s+(parseFloat(c.pct)||0),0);
+  if (Math.abs(pctTotal-100) > 0.5) {
+    alert(`Los porcentajes suman ${pctTotal.toFixed(1)}%. Deben sumar exactamente 100%.`);
+    return;
+  }
+  let id;
+  if (existingId) { id = existingId; }
+  else { id = genMixCode(); }
+  const existing = S.lots.find(l=>l.id===id);
+  const base = existing || { id, type:'mix', createdAt: new Date().toISOString() };
+  const updated = Object.assign({}, base, {
+    componentLots: components,
+    netWeight: document.getElementById('mix-netWeight')?.value || '',
+    bagCount: document.getElementById('mix-bagCount')?.value || '',
+    status: document.getElementById('mix-status')?.value || 'registered',
+    buyer: document.getElementById('mix-buyer')?.value || '',
+    dispatchDate: document.getElementById('mix-dispatchDate')?.value || '',
+    transportRef: document.getElementById('mix-transportRef')?.value || '',
+    observations: document.getElementById('mix-observations')?.value || '',
+    updatedAt: new Date().toISOString(),
+  });
+  if (existing) { const idx = S.lots.indexOf(existing); S.lots[idx] = updated; }
+  else S.lots.push(updated);
+  persist();
+  S.editId = id;
+  S.view = 'edit-mix';
+  render();
+}
+
+// ─── Delete ───────────────────────────────────────────────────────────────────
+function promptDelete(id) { S.deleteTarget = id; document.getElementById('deleteModal').style.display='flex'; }
+function confirmDelete() {
+  S.lots = S.lots.filter(l=>l.id!==S.deleteTarget);
+  persist(); closeModal('deleteModal');
+  navigate('dashboard');
+}
+
+// ─── Settings ─────────────────────────────────────────────────────────────────
+function openSettings() {
+  document.getElementById('s-orgCode').value = S.settings.orgCode;
+  document.getElementById('s-assocName').value = S.settings.assocName;
+  document.getElementById('s-rut').value = S.settings.rut;
+  document.getElementById('s-ica').value = S.settings.ica;
+  document.getElementById('settingsModal').style.display='flex';
+}
+function saveSettings() {
+  S.settings.orgCode = (document.getElementById('s-orgCode').value.trim().toUpperCase() || 'ACAC').slice(0,6);
+  S.settings.assocName = document.getElementById('s-assocName').value.trim();
+  S.settings.rut = document.getElementById('s-rut').value.trim();
+  S.settings.ica = document.getElementById('s-ica').value.trim();
+  document.getElementById('orgDisplay').textContent = S.settings.orgCode;
+  persist(); closeModal('settingsModal');
+}
+function closeModal(id) { document.getElementById(id).style.display='none'; }
+
+// ─── CSV Export ───────────────────────────────────────────────────────────────
+function exportCSV() {
+  const cols = ['id','type','status','harvestDate','farmName','municipality','department','altitude','producer',
+    'varieties','grossWeight','netWeight','bagCountReg',
+    'fermentStart','fermentEnd','fermentDays','fermentorType','turns',
+    'dryStart','dryEnd','dryDays','dryMethod','finalMoisture',
+    'cutDate','cutTech','sensorNotes',
+    'bagCount','bagWeight','packNetWeight','packType','buyer','dispatchDate','transportRef','observations',
+    'componentLots','createdAt','updatedAt'];
+  const rows = [cols.join(',')];
+  S.lots.forEach(l => {
+    rows.push(cols.map(c => {
+      let v = l[c];
+      if (c === 'varieties') v = (l.varieties||[]).map(x=>x.name+(x.pct?':'+x.pct+'%':'')).join('; ');
+      if (c === 'componentLots') v = (l.componentLots||[]).map(x=>x.lotId+(x.pct?':'+x.pct+'%':'')).join('; ');
+      return `"${String(v||'').replace(/"/g,'""')}"`;
+    }).join(','));
+  });
+  const blob = new Blob([rows.join('\n')], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `fine_lots_${today()}.csv`;
+  a.click();
+}
+
+
+// ─── Provnr Supabase Sync ─────────────────────────────────────────────────────
+const PROVNR_URL  = 'https://nlcpgqutjscdmxzmkckb.supabase.co';
+const PROVNR_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sY3BncXV0anNjZG14em1rY2tiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwNDg2MjUsImV4cCI6MjA4NTYyNDYyNX0.56egK34vwTX2ik782SY_Q_NfCdJV_dqq3d_YMiXJZXg';
+const provnrClient = supabase.createClient(PROVNR_URL, PROVNR_KEY);
+
+function syncSetStatus(msg, type) {
+  const el = document.getElementById('syncStatus');
+  if (!el) return;
+  el.style.display = 'block';
+  el.className = 'sync-status ' + (type === 'ok' ? 'sync-ok' : 'sync-err');
+  el.innerHTML = msg;
+}
+
+function setField(id, value) {
+  const el = document.getElementById(id);
+  if (el && value !== null && value !== undefined && value !== '') {
+    el.value = value;
+    el.dispatchEvent(new Event('input'));
+  }
+}
+
+function toDateStr(ts) {
+  if (!ts) return null;
+  return new Date(ts).toISOString().slice(0, 10);
+}
+
+// Step ID → which form fields it drives
+// step in DB is stored as e.g. "receiving_1", "ferment_1_1", "quality_check_1"
+function stepPrefix(step) {
+  if (!step) return '';
+  return step.toLowerCase().replace(/_\d+$/, ''); // strip trailing _N
+}
+
+async function syncFromProvnr() {
+  const lotName = (document.getElementById('syncLotName')?.value || '').trim();
+  if (!lotName) { syncSetStatus('Ingresa el nombre del lote.', 'err'); return; }
+
+  const btn = document.getElementById('syncBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Buscando…'; }
+  syncSetStatus('', 'ok');
+
+  try {
+    // Fetch all photo_metadata rows for this session_name
+    const { data: photos, error } = await provnrClient
+      .from('photo_metadata')
+      .select('step, timestamp, gps_latitude, gps_longitude, gps_altitude, user_id')
+      .eq('session_name', lotName)
+      .order('timestamp', { ascending: true });
+
+    if (error) throw error;
+    if (!photos || photos.length === 0) {
+      syncSetStatus(`No se encontraron fotos para el lote <strong>${lotName}</strong>. Verifica el nombre exacto.`, 'err');
+      return;
+    }
+
+    // Group by step prefix, keep earliest timestamp per step
+    const byStep = {};
+    photos.forEach(p => {
+      const key = stepPrefix(p.step);
+      if (!byStep[key]) byStep[key] = p;
+    });
+
+    const filled = [];
+
+    // Harvest date — receiving (association) or harvest_collection (farmer)
+    const harvestRow = byStep['receiving'] || byStep['harvest_collection'] || byStep['harvest_weight'];
+    if (harvestRow?.timestamp) {
+      setField('f-harvestDate', toDateStr(harvestRow.timestamp));
+      updateCodePreview(toDateStr(harvestRow.timestamp));
+      filled.push('Fecha de cosecha');
+    }
+
+    // Fermentation dates
+    const f1 = byStep['ferment_1'];
+    if (f1?.timestamp) { setField('f-fermentStart', toDateStr(f1.timestamp)); filled.push('Inicio fermentación'); }
+    const f2 = byStep['ferment_2'];
+    if (f2?.timestamp) { setField('f-fermentEnd', toDateStr(f2.timestamp)); filled.push('Fin fermentación'); }
+    if (f1?.timestamp && f2?.timestamp) {
+      setField('f-fermentDays', Math.round((new Date(f2.timestamp) - new Date(f1.timestamp)) / 86400000));
+    }
+
+    // Drying dates
+    const d1 = byStep['drying_1'];
+    if (d1?.timestamp) { setField('f-dryStart', toDateStr(d1.timestamp)); filled.push('Inicio secado'); }
+    const d2 = byStep['drying_2'];
+    if (d2?.timestamp) { setField('f-dryEnd', toDateStr(d2.timestamp)); filled.push('Fin secado'); }
+    if (d1?.timestamp && d2?.timestamp) {
+      setField('f-dryDays', Math.round((new Date(d2.timestamp) - new Date(d1.timestamp)) / 86400000));
+    }
+
+    // GPS altitude from first photo that has it
+    const withAlt = photos.find(p => p.gps_altitude);
+    if (withAlt?.gps_altitude) {
+      setField('f-altitude', Math.round(withAlt.gps_altitude));
+      filled.push('Altitud');
+    }
+
+    // Fetch producer / farm name from profiles using user_id
+    const userId = photos[0]?.user_id;
+    if (userId) {
+      const { data: profile } = await provnrClient
+        .from('profiles')
+        .select('name, farm_name, association_name, user_type')
+        .eq('id', userId)
+        .single();
+      if (profile) {
+        const farm = profile.user_type === 'association' ? profile.association_name : profile.farm_name;
+        if (farm)  { setField('f-farmName', farm);      filled.push('Nombre de la finca'); }
+        if (profile.name) { setField('f-producer', profile.name); filled.push('Productor'); }
+      }
+    }
+
+    // Cross-section photo count (quality_check step)
+    const cutPhotos = photos.filter(p => stepPrefix(p.step) === 'quality_check');
+    if (cutPhotos.length > 0 && cutPhotos[0].timestamp) {
+      setField('f-cutDate', toDateStr(cutPhotos[0].timestamp));
+      filled.push('Fecha prueba de corte');
+    }
+
+    if (filled.length === 0) {
+      syncSetStatus('Se encontraron fotos pero no se pudieron mapear campos. Verifica los pasos del workflow.', 'err');
+    } else {
+      syncSetStatus(
+        `<strong>✓ ${photos.length} fotos encontradas.</strong> Campos completados: <span class="sync-field">${filled.join(' · ')}</span><br>
+        <span style="opacity:.6;font-size:11px">Completa los campos restantes manualmente y guarda el lote.</span>`,
+        'ok'
+      );
+    }
+  } catch (err) {
+    console.error('Sync error:', err);
+    syncSetStatus('Error de conexión: ' + err.message, 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Sincronizar'; }
+  }
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+loadData();
+render();
+</script>
+</body>
+</html>
