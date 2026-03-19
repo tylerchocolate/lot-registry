@@ -1602,17 +1602,21 @@ async function syncFromProvnr() {
     // Fetch public URLs for cross section photos from Supabase Storage
     S.crossSectionPhotos = [];
     if (cutPhotos.length > 0) {
+      // Get file_path for all quality_check photos using the timestamps we already have
+      const cutTimestamps = cutPhotos.map(p => p.timestamp);
       const { data: cutFiles } = await db.from('photo_metadata')
-        .select('file_path')
+        .select('file_path, step')
         .eq('session_name', lotName)
-        .like('step', 'quality_check%')
-        .order('timestamp', { ascending: true });
-      if (cutFiles) {
+        .in('timestamp', cutTimestamps);
+      if (cutFiles && cutFiles.length > 0) {
         S.crossSectionPhotos = cutFiles.map(f => {
           const { data } = db.storage.from('photos').getPublicUrl(f.file_path);
           return data?.publicUrl || null;
         }).filter(Boolean);
         if (S.crossSectionPhotos.length > 0) filled.push(`${S.crossSectionPhotos.length} foto(s) de corte`);
+        else filled.push(`⚠ fotos de corte encontradas pero sin URL pública`);
+      } else {
+        filled.push(`⚠ no se encontraron file_path para quality_check`);
       }
     }
 
