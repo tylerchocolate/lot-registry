@@ -563,51 +563,22 @@ tr:hover td{background:var(--surface3);cursor:pointer;color:var(--text)}
 }
 
 /* ── Provnr Sync Panel ── */
-.sync-panel{
-  background:rgba(144,238,130,0.05);
-  border:1px solid var(--border2);
-  border-radius:8px;
-  padding:14px 16px;
-  margin-bottom:20px;
-}
-.sync-panel .sync-title{
-  font-size:10px;font-weight:900;
-  text-transform:uppercase;letter-spacing:1.5px;
-  color:var(--mint);margin-bottom:10px;
-}
+.sync-panel{background:rgba(144,238,130,0.05);border:1px solid var(--border2);border-radius:8px;padding:14px 16px;margin-bottom:20px}
+.sync-panel .sync-title{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:1.5px;color:var(--mint);margin-bottom:10px}
 .sync-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.sync-input{
-  flex:1;min-width:180px;
-  padding:7px 12px;
-  border:1px solid var(--border2);
-  border-radius:6px;
-  background:var(--surface3);
-  color:var(--text);
-  font-size:13px;font-weight:600;
-  font-family:'Nunito',sans-serif;
-}
+.sync-input{flex:1;min-width:180px;padding:7px 12px;border:1px solid var(--border2);border-radius:6px;background:var(--surface3);color:var(--text);font-size:13px;font-weight:600;font-family:'Nunito',sans-serif}
 .sync-input:focus{outline:none;border-color:var(--mint)}
 .sync-input::placeholder{color:var(--text-muted)}
-.btn-sync{
-  background:var(--mint);color:#000;
-  border:none;border-radius:6px;
-  padding:7px 16px;
-  font-size:12px;font-weight:800;
-  cursor:pointer;font-family:'Nunito',sans-serif;
-  white-space:nowrap;
-  transition:background .15s;
-}
+.btn-sync{background:var(--mint);color:#000;border:none;border-radius:6px;padding:7px 16px;font-size:12px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;white-space:nowrap}
 .btn-sync:hover{background:var(--mint-dim)}
 .btn-sync:disabled{opacity:.5;cursor:not-allowed}
-.sync-status{
-  font-size:12px;font-weight:700;
-  margin-top:10px;padding:8px 12px;
-  border-radius:6px;
-  display:none;
-}
+.sync-status{font-size:12px;font-weight:700;margin-top:10px;padding:8px 12px;border-radius:6px;display:none}
 .sync-ok{background:rgba(144,238,130,0.1);color:var(--mint);border-left:3px solid var(--mint)}
 .sync-err{background:rgba(239,68,68,0.1);color:#F87171;border-left:3px solid #F87171}
 .sync-field{color:var(--text-dim)}
+.db-banner{background:rgba(144,238,130,0.07);border-bottom:1px solid var(--border2);padding:6px 20px;font-size:11px;font-weight:700;color:var(--text-muted);display:flex;align-items:center;gap:8px}
+.db-dot{width:7px;height:7px;border-radius:50%;background:var(--mint);display:inline-block}
+.db-dot.err{background:#F87171}
 
 </style>
 </head>
@@ -635,6 +606,7 @@ tr:hover td{background:var(--surface3);cursor:pointer;color:var(--text)}
     </div>
   </div>
 
+  <div class="db-banner" id="dbBanner"><span class="db-dot" id="dbDot"></span><span id="dbMsg">Conectando a Provnr...</span></div>
   <div class="body">
 
     <!-- ── Sidebar ── -->
@@ -703,138 +675,113 @@ const S = {
   search: '',
   deleteTarget: null,
   settings: { orgCode:'ACAC', assocName:'', rut:'', ica:'' },
-  lots: [],
-  loading: false
+  lots: []
 };
 
-// ─── Persistence ──────────────────────────────────────────────────────────────
-// Settings stay in localStorage (org-level config, not lot data)
-function persistSettings() {
-  localStorage.setItem('cacao_settings', JSON.stringify(S.settings));
+// ─── Supabase client ──────────────────────────────────────────────────────────
+const PROVNR_URL = 'https://nlcpgqutjscdmxzmkckb.supabase.co';
+const PROVNR_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sY3BncXV0anNjZG14em1rY2tiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwNDg2MjUsImV4cCI6MjA4NTYyNDYyNX0.56egK34vwTX2ik782SY_Q_NfCdJV_dqq3d_YMiXJZXg';
+const db = supabase.createClient(PROVNR_URL, PROVNR_KEY);
+let dbAvailable = false;
+
+function setDbStatus(ok, msg) {
+  dbAvailable = ok;
+  const dot = document.getElementById('dbDot');
+  const txt = document.getElementById('dbMsg');
+  if (dot) dot.className = 'db-dot' + (ok ? '' : ' err');
+  if (txt) txt.textContent = msg;
 }
 
-// Convert Supabase lot row → registry lot object
+// ─── Row converters ───────────────────────────────────────────────────────────
 function rowToLot(r) {
   return {
-    id:            r.id,
-    type:          'lot',
-    status:        r.status || 'registered',
-    // Farm
-    farmName:      r.farm_name || '',
-    municipality:  r.municipality || '',
-    department:    r.department || '',
-    altitude:      r.altitude || '',
-    producer:      r.producer || '',
-    technician0:   r.technician0 || '',
-    // Varieties
-    varieties:     r.varieties || [],
-    // Weights
-    grossWeight:   r.gross_weight || '',
-    netWeight:     r.net_weight || '',
-    bagCountReg:   r.bag_count_reg || '',
-    // Dates auto from app
-    harvestDate:   r.harvest_date || '',
-    fermentStart:  r.ferment_start_at ? r.ferment_start_at.slice(0,10) : '',
-    fermentEnd:    r.ferment_end_at   ? r.ferment_end_at.slice(0,10)   : '',
-    fermentDays:   r.ferment_days || '',
-    dryStart:      r.dry_start_at     ? r.dry_start_at.slice(0,10)     : '',
-    dryEnd:        r.dry_end_at       ? r.dry_end_at.slice(0,10)       : '',
-    dryDays:       r.dry_days || '',
-    // Fermentation manual
-    turns:         r.turns || '',
-    fermentorType: r.fermentor_type || '',
-    fermentNotes:  r.ferment_notes || '',
-    // Drying manual
-    finalMoisture: r.final_moisture || '',
-    dryMethod:     r.dry_method || '',
-    dryNotes:      r.dry_notes || '',
-    // Cut test
-    cutDate:       r.cut_date || '',
-    cutTech:       r.cut_tech || '',
-    cutRows:       r.cut_rows || [],
-    cutBlend:      r.cut_blend || {},
-    sensorNotes:   r.sensor_notes || '',
-    // Packing
-    bagCount:      r.bag_count || '',
-    bagWeight:     r.bag_weight || '',
-    packNetWeight: r.pack_net_weight || '',
-    packType:      r.pack_type || '',
-    // Dispatch
-    buyer:         r.buyer || '',
-    dispatchDate:  r.dispatch_date || '',
-    transportRef:  r.transport_ref || '',
-    observations:  r.observations || '',
-    // Meta
-    createdAt:     r.created_at || '',
-    updatedAt:     r.updated_at || '',
+    id: r.id, type: 'lot', status: r.status || 'registered',
+    farmName: r.farm_name || '', municipality: r.municipality || '',
+    department: r.department || '', altitude: r.altitude || '',
+    producer: r.producer || '', technician0: r.technician0 || '',
+    varieties: r.varieties || [],
+    grossWeight: r.gross_weight || '', netWeight: r.net_weight || '',
+    bagCountReg: r.bag_count_reg || '',
+    harvestDate: r.harvest_date || '',
+    fermentStart: r.ferment_start_at ? r.ferment_start_at.slice(0,10) : '',
+    fermentEnd:   r.ferment_end_at   ? r.ferment_end_at.slice(0,10)   : '',
+    fermentDays: r.ferment_days || '',
+    dryStart: r.dry_start_at ? r.dry_start_at.slice(0,10) : '',
+    dryEnd:   r.dry_end_at   ? r.dry_end_at.slice(0,10)   : '',
+    dryDays: r.dry_days || '',
+    turns: r.turns || '', fermentorType: r.fermentor_type || '',
+    fermentNotes: r.ferment_notes || '',
+    finalMoisture: r.final_moisture || '', dryMethod: r.dry_method || '',
+    dryNotes: r.dry_notes || '',
+    cutDate: r.cut_date || '', cutTech: r.cut_tech || '',
+    cutRows: r.cut_rows || [], cutBlend: r.cut_blend || {},
+    sensorNotes: r.sensor_notes || '',
+    bagCount: r.bag_count || '', bagWeight: r.bag_weight || '',
+    packNetWeight: r.pack_net_weight || '', packType: r.pack_type || '',
+    buyer: r.buyer || '', dispatchDate: r.dispatch_date || '',
+    transportRef: r.transport_ref || '', observations: r.observations || '',
+    createdAt: r.created_at || '', updatedAt: r.updated_at || '',
   };
 }
 
-// Convert registry lot object → Supabase row
 function lotToRow(l) {
   return {
-    id:              l.id,
-    status:          l.status || 'registered',
-    farm_name:       l.farmName || null,
-    municipality:    l.municipality || null,
-    department:      l.department || null,
-    altitude:        l.altitude ? parseFloat(l.altitude) : null,
-    producer:        l.producer || null,
-    technician0:     l.technician0 || null,
-    varieties:       l.varieties || [],
-    gross_weight:    l.grossWeight ? parseFloat(l.grossWeight) : null,
-    net_weight:      l.netWeight ? parseFloat(l.netWeight) : null,
-    bag_count_reg:   l.bagCountReg ? parseInt(l.bagCountReg) : null,
-    harvest_date:    l.harvestDate || null,
-    ferment_days:    l.fermentDays ? parseInt(l.fermentDays) : null,
-    turns:           l.turns ? parseInt(l.turns) : null,
-    fermentor_type:  l.fermentorType || null,
-    ferment_notes:   l.fermentNotes || null,
-    final_moisture:  l.finalMoisture ? parseFloat(l.finalMoisture) : null,
-    dry_method:      l.dryMethod || null,
-    dry_notes:       l.dryNotes || null,
-    cut_date:        l.cutDate || null,
-    cut_tech:        l.cutTech || null,
-    cut_rows:        l.cutRows || [],
-    cut_blend:       l.cutBlend || {},
-    sensor_notes:    l.sensorNotes || null,
-    bag_count:       l.bagCount ? parseInt(l.bagCount) : null,
-    bag_weight:      l.bagWeight ? parseFloat(l.bagWeight) : null,
+    id: l.id, status: l.status || 'registered',
+    farm_name: l.farmName || null, municipality: l.municipality || null,
+    department: l.department || null,
+    altitude: l.altitude ? parseFloat(l.altitude) : null,
+    producer: l.producer || null, technician0: l.technician0 || null,
+    varieties: l.varieties || [],
+    gross_weight: l.grossWeight ? parseFloat(l.grossWeight) : null,
+    net_weight: l.netWeight ? parseFloat(l.netWeight) : null,
+    bag_count_reg: l.bagCountReg ? parseInt(l.bagCountReg) : null,
+    harvest_date: l.harvestDate || null,
+    ferment_days: l.fermentDays ? parseInt(l.fermentDays) : null,
+    turns: l.turns ? parseInt(l.turns) : null,
+    fermentor_type: l.fermentorType || null,
+    ferment_notes: l.fermentNotes || null,
+    final_moisture: l.finalMoisture ? parseFloat(l.finalMoisture) : null,
+    dry_method: l.dryMethod || null, dry_notes: l.dryNotes || null,
+    cut_date: l.cutDate || null, cut_tech: l.cutTech || null,
+    cut_rows: l.cutRows || [], cut_blend: l.cutBlend || {},
+    sensor_notes: l.sensorNotes || null,
+    bag_count: l.bagCount ? parseInt(l.bagCount) : null,
+    bag_weight: l.bagWeight ? parseFloat(l.bagWeight) : null,
     pack_net_weight: l.packNetWeight ? parseFloat(l.packNetWeight) : null,
-    pack_type:       l.packType || null,
-    buyer:           l.buyer || null,
-    dispatch_date:   l.dispatchDate || null,
-    transport_ref:   l.transportRef || null,
-    observations:    l.observations || null,
+    pack_type: l.packType || null, buyer: l.buyer || null,
+    dispatch_date: l.dispatchDate || null,
+    transport_ref: l.transportRef || null,
+    observations: l.observations || null,
   };
 }
 
-async function persist() {
+// ─── Persistence ──────────────────────────────────────────────────────────────
+function persist() {
   // Settings always local
-  persistSettings();
+  localStorage.setItem('cacao_settings', JSON.stringify(S.settings));
+  // Cache lots locally for offline fallback
+  localStorage.setItem('cacao_lots', JSON.stringify(S.lots));
 }
 
 async function persistLot(lot) {
+  if (!dbAvailable) {
+    // Save to local cache only
+    persist();
+    return;
+  }
   try {
-    const row = lotToRow(lot);
-    const { error } = await provnrClient.from('lots').upsert(row, { onConflict: 'id' });
-    if (error) {
-      console.error('Supabase save error:', error.message);
-      // Fallback to localStorage cache
-      localStorage.setItem('cacao_lots', JSON.stringify(S.lots));
-    }
+    const { error } = await db.from('lots').upsert(lotToRow(lot), { onConflict: 'id' });
+    if (error) throw error;
+    persist(); // also update local cache
   } catch(e) {
-    console.error('Save failed:', e);
-    localStorage.setItem('cacao_lots', JSON.stringify(S.lots));
+    console.error('Supabase save error:', e.message);
+    persist(); // fallback to local
   }
 }
 
 async function deleteLotRemote(id) {
-  try {
-    await provnrClient.from('lots').delete().eq('id', id);
-  } catch(e) {
-    console.error('Delete failed:', e);
-  }
+  if (!dbAvailable) return;
+  try { await db.from('lots').delete().eq('id', id); } catch(e) { console.error('Delete error:', e); }
 }
 
 async function loadData() {
@@ -842,38 +789,26 @@ async function loadData() {
   try { const s = JSON.parse(localStorage.getItem('cacao_settings')); if(s) Object.assign(S.settings, s); } catch(e) {}
   document.getElementById('orgDisplay').textContent = S.settings.orgCode;
 
-  // Mixes from localStorage (app doesn't create mixes)
-  try { 
-    const cached = JSON.parse(localStorage.getItem('cacao_lots') || '[]');
-    S.lots = cached.filter(l => l.type === 'mix');
+  // Load local cache immediately (includes mixes and offline lots)
+  try {
+    S.lots = JSON.parse(localStorage.getItem('cacao_lots') || '[]');
   } catch(e) { S.lots = []; }
-
-  // Show cached state immediately, then fetch fresh from Supabase
   render();
 
+  // Try to fetch from Supabase
   try {
-    S.loading = true;
-    const { data, error } = await provnrClient
-      .from('lots')
-      .select('*')
-      .order('created_at', { ascending: false });
-
+    const { data, error } = await db.from('lots').select('*').order('created_at', { ascending: false });
     if (error) throw error;
-
-    // Merge: Supabase lots + local mixes
-    const supabaseLots = (data || []).map(rowToLot);
+    // Merge: Supabase lots + local mixes (mixes are local-only)
     const localMixes = S.lots.filter(l => l.type === 'mix');
-    S.lots = [...supabaseLots, ...localMixes];
-
-    // Cache locally for offline fallback
-    localStorage.setItem('cacao_lots', JSON.stringify(S.lots));
+    S.lots = [...(data || []).map(rowToLot), ...localMixes];
+    persist();
+    setDbStatus(true, 'Conectado a Provnr ✓');
   } catch(e) {
-    console.warn('Could not load from Supabase, using cache:', e.message);
-    // Already loaded from cache above
-  } finally {
-    S.loading = false;
-    render();
+    setDbStatus(false, 'Sin conexión — mostrando caché local');
+    console.warn('Supabase load failed:', e.message);
   }
+  render();
 }
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -942,7 +877,6 @@ function render() {
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 function renderDashboard() {
-  if (S.loading) return '<div class="empty"><div class="ico">⟳</div><p>Cargando lotes desde Provnr...</p></div>';
   const lots = S.lots.filter(l => l.type === 'lot');
   const mixes = S.lots.filter(l => l.type === 'mix');
   const dispatched = S.lots.filter(l => l.status === 'dispatched');
@@ -1084,9 +1018,9 @@ function renderTab(lot, tab) {
   const vars = (l.varieties && l.varieties.length) ? l.varieties : [{name:'',pct:''}];
   if (tab === 0) return `
     <div class="sync-panel">
-      <div class="sync-title">⟳ Sincronizar desde Provnr App</div>
+      <div class="sync-title">⟳ Rellenar desde Provnr App</div>
       <div class="sync-row">
-        <input class="sync-input" id="syncLotName" placeholder="Nombre del lote (ej. finca-la-esperanza-001)" />
+        <input class="sync-input" id="syncLotName" placeholder="Nombre del lote (ej. finca-la-esperanza-001)">
         <button class="btn-sync" id="syncBtn" onclick="syncFromProvnr()">Sincronizar</button>
       </div>
       <div class="sync-status" id="syncStatus"></div>
@@ -1432,7 +1366,7 @@ function collectCutBlend() {
   paramKeys.forEach(k => { const el = document.getElementById(`ct-blend-${k}`); obj[k] = el ? el.value : ''; });
   return obj;
 }
-function saveLotForm(existingId) {
+async function saveLotForm(existingId) {
   const harvestDate = document.getElementById('f-harvestDate')?.value;
   const vars = getVarsFromForm();
   let id;
@@ -1486,7 +1420,6 @@ function saveLotForm(existingId) {
   });
   if (existing) { const idx = S.lots.indexOf(existing); S.lots[idx] = updated; }
   else S.lots.push(updated);
-  persist();
   await persistLot(updated);
   S.editId = id;
   S.view = 'edit-lot';
@@ -1522,7 +1455,6 @@ function saveMixForm(existingId) {
   if (existing) { const idx = S.lots.indexOf(existing); S.lots[idx] = updated; }
   else S.lots.push(updated);
   persist();
-  localStorage.setItem('cacao_lots', JSON.stringify(S.lots));
   S.editId = id;
   S.view = 'edit-mix';
   render();
@@ -1534,7 +1466,6 @@ async function confirmDelete() {
   const target = S.lots.find(l=>l.id===S.deleteTarget);
   S.lots = S.lots.filter(l=>l.id!==S.deleteTarget);
   persist();
-  localStorage.setItem('cacao_lots', JSON.stringify(S.lots));
   if (target?.type !== 'mix') await deleteLotRemote(S.deleteTarget);
   closeModal('deleteModal');
   navigate('dashboard');
@@ -1554,7 +1485,7 @@ function saveSettings() {
   S.settings.rut = document.getElementById('s-rut').value.trim();
   S.settings.ica = document.getElementById('s-ica').value.trim();
   document.getElementById('orgDisplay').textContent = S.settings.orgCode;
-  persistSettings(); closeModal('settingsModal');
+  persist(); closeModal('settingsModal');
 }
 function closeModal(id) { document.getElementById(id).style.display='none'; }
 
@@ -1584,11 +1515,7 @@ function exportCSV() {
 }
 
 
-// ─── Provnr Supabase Sync ─────────────────────────────────────────────────────
-const PROVNR_URL  = 'https://nlcpgqutjscdmxzmkckb.supabase.co';
-const PROVNR_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sY3BncXV0anNjZG14em1rY2tiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwNDg2MjUsImV4cCI6MjA4NTYyNDYyNX0.56egK34vwTX2ik782SY_Q_NfCdJV_dqq3d_YMiXJZXg';
-const provnrClient = supabase.createClient(PROVNR_URL, PROVNR_KEY);
-
+// ─── Provnr sync (metadata backfill from photo_metadata) ─────────────────────
 function syncSetStatus(msg, type) {
   const el = document.getElementById('syncStatus');
   if (!el) return;
@@ -1596,7 +1523,6 @@ function syncSetStatus(msg, type) {
   el.className = 'sync-status ' + (type === 'ok' ? 'sync-ok' : 'sync-err');
   el.innerHTML = msg;
 }
-
 function setField(id, value) {
   const el = document.getElementById(id);
   if (el && value !== null && value !== undefined && value !== '') {
@@ -1604,30 +1530,17 @@ function setField(id, value) {
     el.dispatchEvent(new Event('input'));
   }
 }
-
-function toDateStr(ts) {
-  if (!ts) return null;
-  return new Date(ts).toISOString().slice(0, 10);
-}
-
-// Step ID → which form fields it drives
-// step in DB is stored as e.g. "receiving_1", "ferment_1_1", "quality_check_1"
-function stepPrefix(step) {
-  if (!step) return '';
-  return step.toLowerCase().replace(/_\d+$/, ''); // strip trailing _N
-}
+function toDateStr(ts) { return ts ? new Date(ts).toISOString().slice(0,10) : null; }
+function baseStep(step) { return (step||'').replace(/_\d+$/, ''); }
 
 async function syncFromProvnr() {
   const lotName = (document.getElementById('syncLotName')?.value || '').trim();
   if (!lotName) { syncSetStatus('Ingresa el nombre del lote.', 'err'); return; }
-
   const btn = document.getElementById('syncBtn');
   if (btn) { btn.disabled = true; btn.textContent = 'Buscando…'; }
-  syncSetStatus('', 'ok');
 
   try {
-    // Fetch all photo_metadata rows for this session_name
-    const { data: photos, error } = await provnrClient
+    const { data: photos, error } = await db
       .from('photo_metadata')
       .select('step, timestamp, gps_latitude, gps_longitude, gps_altitude, user_id')
       .eq('session_name', lotName)
@@ -1635,86 +1548,51 @@ async function syncFromProvnr() {
 
     if (error) throw error;
     if (!photos || photos.length === 0) {
-      syncSetStatus(`No se encontraron fotos para el lote <strong>${lotName}</strong>. Verifica el nombre exacto.`, 'err');
+      syncSetStatus(`No se encontraron fotos para <strong>${lotName}</strong>.`, 'err');
       return;
     }
 
-    // Group by step prefix, keep earliest timestamp per step
     const byStep = {};
-    photos.forEach(p => {
-      const key = stepPrefix(p.step);
-      if (!byStep[key]) byStep[key] = p;
-    });
-
+    photos.forEach(p => { const k = baseStep(p.step); if (!byStep[k]) byStep[k] = p; });
     const filled = [];
 
-    // Harvest date — receiving (association) or harvest_collection (farmer)
     const harvestRow = byStep['receiving'] || byStep['harvest_collection'] || byStep['harvest_weight'];
-    if (harvestRow?.timestamp) {
-      setField('f-harvestDate', toDateStr(harvestRow.timestamp));
-      updateCodePreview(toDateStr(harvestRow.timestamp));
-      filled.push('Fecha de cosecha');
-    }
+    if (harvestRow?.timestamp) { setField('f-harvestDate', toDateStr(harvestRow.timestamp)); updateCodePreview(toDateStr(harvestRow.timestamp)); filled.push('Fecha de cosecha'); }
 
-    // Fermentation dates
     const f1 = byStep['ferment_1'];
     if (f1?.timestamp) { setField('f-fermentStart', toDateStr(f1.timestamp)); filled.push('Inicio fermentación'); }
     const f2 = byStep['ferment_2'];
     if (f2?.timestamp) { setField('f-fermentEnd', toDateStr(f2.timestamp)); filled.push('Fin fermentación'); }
-    if (f1?.timestamp && f2?.timestamp) {
-      setField('f-fermentDays', Math.round((new Date(f2.timestamp) - new Date(f1.timestamp)) / 86400000));
-    }
+    if (f1?.timestamp && f2?.timestamp) setField('f-fermentDays', Math.round((new Date(f2.timestamp)-new Date(f1.timestamp))/86400000));
 
-    // Drying dates
     const d1 = byStep['drying_1'];
     if (d1?.timestamp) { setField('f-dryStart', toDateStr(d1.timestamp)); filled.push('Inicio secado'); }
     const d2 = byStep['drying_2'];
     if (d2?.timestamp) { setField('f-dryEnd', toDateStr(d2.timestamp)); filled.push('Fin secado'); }
-    if (d1?.timestamp && d2?.timestamp) {
-      setField('f-dryDays', Math.round((new Date(d2.timestamp) - new Date(d1.timestamp)) / 86400000));
-    }
+    if (d1?.timestamp && d2?.timestamp) setField('f-dryDays', Math.round((new Date(d2.timestamp)-new Date(d1.timestamp))/86400000));
 
-    // GPS altitude from first photo that has it
     const withAlt = photos.find(p => p.gps_altitude);
-    if (withAlt?.gps_altitude) {
-      setField('f-altitude', Math.round(withAlt.gps_altitude));
-      filled.push('Altitud');
-    }
+    if (withAlt?.gps_altitude) { setField('f-altitude', Math.round(withAlt.gps_altitude)); filled.push('Altitud'); }
 
-    // Fetch producer / farm name from profiles using user_id
+    const cutPhotos = photos.filter(p => baseStep(p.step) === 'quality_check');
+    if (cutPhotos[0]?.timestamp) { setField('f-cutDate', toDateStr(cutPhotos[0].timestamp)); filled.push('Fecha prueba de corte'); }
+
     const userId = photos[0]?.user_id;
     if (userId) {
-      const { data: profile } = await provnrClient
-        .from('profiles')
-        .select('name, farm_name, association_name, user_type')
-        .eq('id', userId)
-        .single();
+      const { data: profile } = await db.from('profiles').select('name,farm_name,association_name,user_type').eq('id', userId).single();
       if (profile) {
         const farm = profile.user_type === 'association' ? profile.association_name : profile.farm_name;
-        if (farm)  { setField('f-farmName', farm);      filled.push('Nombre de la finca'); }
+        if (farm) { setField('f-farmName', farm); filled.push('Finca'); }
         if (profile.name) { setField('f-producer', profile.name); filled.push('Productor'); }
       }
     }
 
-    // Cross-section photo count (quality_check step)
-    const cutPhotos = photos.filter(p => stepPrefix(p.step) === 'quality_check');
-    if (cutPhotos.length > 0 && cutPhotos[0].timestamp) {
-      setField('f-cutDate', toDateStr(cutPhotos[0].timestamp));
-      filled.push('Fecha prueba de corte');
-    }
-
-    if (filled.length === 0) {
-      syncSetStatus('Se encontraron fotos pero no se pudieron mapear campos. Verifica los pasos del workflow.', 'err');
-    } else {
-      syncSetStatus(
-        `<strong>✓ ${photos.length} fotos encontradas.</strong> Campos completados: <span class="sync-field">${filled.join(' · ')}</span><br>
-        <span style="opacity:.6;font-size:11px">Completa los campos restantes manualmente y guarda el lote.</span>`,
-        'ok'
-      );
-    }
-  } catch (err) {
-    console.error('Sync error:', err);
-    syncSetStatus('Error de conexión: ' + err.message, 'err');
+    syncSetStatus(
+      `<strong>✓ ${photos.length} fotos encontradas.</strong> Completados: <span class="sync-field">${filled.join(' · ')}</span><br><span style="opacity:.6;font-size:11px">Completa los campos restantes y guarda.</span>`,
+      'ok'
+    );
+  } catch(e) {
+    syncSetStatus('Error: ' + e.message, 'err');
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Sincronizar'; }
   }
@@ -1722,7 +1600,7 @@ async function syncFromProvnr() {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 loadData();
-render();
+
 </script>
 </body>
 </html>
