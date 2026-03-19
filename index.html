@@ -1014,7 +1014,7 @@ function renderLotForm(id) {
 function stepsDone(lot) {
   const done = [];
   if (lot.farmName || lot.harvestDate) done.push(0);
-  if (lot.fermentStart || lot.dryMethod) done.push(1);
+  if (lot.fermentStart || lot.fermentEnd || lot.dryStart || lot.dryEnd || lot.dryMethod || lot.fermentorType) done.push(1);
   if (lot.cutDate || (lot.cutRows && lot.cutRows.length)) done.push(2);
   if (lot.bagCount || lot.buyer) done.push(3);
   return done;
@@ -1563,41 +1563,76 @@ async function syncFromProvnr() {
     photos.forEach(p => { const k = baseStep(p.step); if (!byStep[k]) byStep[k] = p; });
     const filled = [];
 
+    // Build patch object — write directly into the lot in memory, not the DOM
+    // This way all fields are populated regardless of which tab is currently visible
+    const patch = {};
+
     const harvestRow = byStep['receiving'] || byStep['harvest_collection'] || byStep['harvest_weight'];
-    if (harvestRow?.timestamp) { setField('f-harvestDate', toDateStr(harvestRow.timestamp)); updateCodePreview(toDateStr(harvestRow.timestamp)); filled.push('Fecha de cosecha'); }
+    if (harvestRow?.timestamp) { patch.harvestDate = toDateStr(harvestRow.timestamp); filled.push('Fecha de cosecha'); }
 
     const f1 = byStep['ferment_1'];
-    if (f1?.timestamp) { setField('f-fermentStart', toDateStr(f1.timestamp)); filled.push('Inicio fermentación'); }
+    if (f1?.timestamp) { patch.fermentStart = toDateStr(f1.timestamp); filled.push('Inicio fermentación'); }
     const f2 = byStep['ferment_2'];
-    if (f2?.timestamp) { setField('f-fermentEnd', toDateStr(f2.timestamp)); filled.push('Fin fermentación'); }
-    if (f1?.timestamp && f2?.timestamp) setField('f-fermentDays', Math.round((new Date(f2.timestamp)-new Date(f1.timestamp))/86400000));
+    if (f2?.timestamp) { patch.fermentEnd = toDateStr(f2.timestamp); filled.push('Fin fermentación'); }
+    if (f1?.timestamp && f2?.timestamp) patch.fermentDays = String(Math.round((new Date(f2.timestamp)-new Date(f1.timestamp))/86400000));
 
     const d1 = byStep['drying_1'];
-    if (d1?.timestamp) { setField('f-dryStart', toDateStr(d1.timestamp)); filled.push('Inicio secado'); }
+    if (d1?.timestamp) { patch.dryStart = toDateStr(d1.timestamp); filled.push('Inicio secado'); }
     const d2 = byStep['drying_2'];
-    if (d2?.timestamp) { setField('f-dryEnd', toDateStr(d2.timestamp)); filled.push('Fin secado'); }
-    if (d1?.timestamp && d2?.timestamp) setField('f-dryDays', Math.round((new Date(d2.timestamp)-new Date(d1.timestamp))/86400000));
+    if (d2?.timestamp) { patch.dryEnd = toDateStr(d2.timestamp); filled.push('Fin secado'); }
+    if (d1?.timestamp && d2?.timestamp) patch.dryDays = String(Math.round((new Date(d2.timestamp)-new Date(d1.timestamp))/86400000));
 
     const withAlt = photos.find(p => p.gps_altitude);
-    if (withAlt?.gps_altitude) { setField('f-altitude', Math.round(withAlt.gps_altitude)); filled.push('Altitud'); }
+    if (withAlt?.gps_altitude) { patch.altitude = String(Math.round(withAlt.gps_altitude)); filled.push('Altitud'); }
 
     const cutPhotos = photos.filter(p => baseStep(p.step) === 'quality_check');
-    if (cutPhotos[0]?.timestamp) { setField('f-cutDate', toDateStr(cutPhotos[0].timestamp)); filled.push('Fecha prueba de corte'); }
+    if (cutPhotos[0]?.timestamp) { patch.cutDate = toDateStr(cutPhotos[0].timestamp); filled.push('Fecha prueba de corte'); }
 
     const userId = photos[0]?.user_id;
     if (userId) {
       const { data: profile } = await db.from('profiles').select('name,farm_name,association_name,user_type').eq('id', userId).single();
       if (profile) {
         const farm = profile.user_type === 'association' ? profile.association_name : profile.farm_name;
-        if (farm) { setField('f-farmName', farm); filled.push('Finca'); }
-        if (profile.name) { setField('f-producer', profile.name); filled.push('Productor'); }
+        if (farm) { patch.farmName = farm; filled.push('Finca'); }
+        if (profile.name) { patch.producer = profile.name; filled.push('Productor'); }
       }
     }
 
-    syncSetStatus(
-      `<strong>✓ ${photos.length} fotos encontradas.</strong> Completados: <span class="sync-field">${filled.join(' · ')}</span><br><span style="opacity:.6;font-size:11px">Completa los campos restantes y guarda.</span>`,
-      'ok'
-    );
+    // Apply patch to existing lot in S.lots, or create a stub if editing a new lot
+    const existingIdx = S.lots.findIndex(l => l.id === S.editId);
+    if (existingIdx >= 0) {
+      S.lots[existingIdx] = Object.assign({}, S.lots[existingIdx], patch);
+    } else {
+      // New lot — patch will be applied via setField on current tab fields
+      // and re-render will populate other tabs when user navigates to them
+      Object.keys(patch).forEach(k => {
+        const fieldMap = {
+          harvestDate: 'f-harvestDate', farmName: 'f-farmName', producer: 'f-producer',
+          altitude: 'f-altitude', cutDate: 'f-cutDate',
+          fermentStart: 'f-fermentStart', fermentEnd: 'f-fermentEnd', fermentDays: 'f-fermentDays',
+          dryStart: 'f-dryStart', dryEnd: 'f-dryEnd', dryDays: 'f-dryDays',
+        };
+        if (fieldMap[k]) setField(fieldMap[k], patch[k]);
+      });
+      if (patch.harvestDate) updateCodePreview(patch.harvestDate);
+    }
+
+    // Re-render the form so all tabs reflect the patched data
+    if (existingIdx >= 0) {
+      const savedTab = S.tab;
+      render();
+      // Re-render restores tab to savedTab automatically
+      // Show status after render
+      setTimeout(() => syncSetStatus(
+        `<strong>✓ ${photos.length} fotos encontradas.</strong> Completados: <span class="sync-field">${filled.join(' · ')}</span><br><span style="opacity:.6;font-size:11px">Revisa todas las pestañas y guarda el lote.</span>`,
+        'ok'
+      ), 50);
+    } else {
+      syncSetStatus(
+        `<strong>✓ ${photos.length} fotos encontradas.</strong> Completados: <span class="sync-field">${filled.join(' · ')}</span><br><span style="opacity:.6;font-size:11px">Completa los campos restantes y guarda.</span>`,
+        'ok'
+      );
+    }
   } catch(e) {
     syncSetStatus('Error: ' + e.message, 'err');
   } finally {
