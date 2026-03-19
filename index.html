@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Lot Registry — Provnr</title>
+<title>Fine · Lot Registry — Provnr</title>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
@@ -703,18 +703,177 @@ const S = {
   search: '',
   deleteTarget: null,
   settings: { orgCode:'ACAC', assocName:'', rut:'', ica:'' },
-  lots: []
+  lots: [],
+  loading: false
 };
 
 // ─── Persistence ──────────────────────────────────────────────────────────────
-function persist() {
-  localStorage.setItem('cacao_lots', JSON.stringify(S.lots));
+// Settings stay in localStorage (org-level config, not lot data)
+function persistSettings() {
   localStorage.setItem('cacao_settings', JSON.stringify(S.settings));
 }
-function loadData() {
-  try { S.lots = JSON.parse(localStorage.getItem('cacao_lots') || '[]'); } catch(e) { S.lots = []; }
+
+// Convert Supabase lot row → registry lot object
+function rowToLot(r) {
+  return {
+    id:            r.id,
+    type:          'lot',
+    status:        r.status || 'registered',
+    // Farm
+    farmName:      r.farm_name || '',
+    municipality:  r.municipality || '',
+    department:    r.department || '',
+    altitude:      r.altitude || '',
+    producer:      r.producer || '',
+    technician0:   r.technician0 || '',
+    // Varieties
+    varieties:     r.varieties || [],
+    // Weights
+    grossWeight:   r.gross_weight || '',
+    netWeight:     r.net_weight || '',
+    bagCountReg:   r.bag_count_reg || '',
+    // Dates auto from app
+    harvestDate:   r.harvest_date || '',
+    fermentStart:  r.ferment_start_at ? r.ferment_start_at.slice(0,10) : '',
+    fermentEnd:    r.ferment_end_at   ? r.ferment_end_at.slice(0,10)   : '',
+    fermentDays:   r.ferment_days || '',
+    dryStart:      r.dry_start_at     ? r.dry_start_at.slice(0,10)     : '',
+    dryEnd:        r.dry_end_at       ? r.dry_end_at.slice(0,10)       : '',
+    dryDays:       r.dry_days || '',
+    // Fermentation manual
+    turns:         r.turns || '',
+    fermentorType: r.fermentor_type || '',
+    fermentNotes:  r.ferment_notes || '',
+    // Drying manual
+    finalMoisture: r.final_moisture || '',
+    dryMethod:     r.dry_method || '',
+    dryNotes:      r.dry_notes || '',
+    // Cut test
+    cutDate:       r.cut_date || '',
+    cutTech:       r.cut_tech || '',
+    cutRows:       r.cut_rows || [],
+    cutBlend:      r.cut_blend || {},
+    sensorNotes:   r.sensor_notes || '',
+    // Packing
+    bagCount:      r.bag_count || '',
+    bagWeight:     r.bag_weight || '',
+    packNetWeight: r.pack_net_weight || '',
+    packType:      r.pack_type || '',
+    // Dispatch
+    buyer:         r.buyer || '',
+    dispatchDate:  r.dispatch_date || '',
+    transportRef:  r.transport_ref || '',
+    observations:  r.observations || '',
+    // Meta
+    createdAt:     r.created_at || '',
+    updatedAt:     r.updated_at || '',
+  };
+}
+
+// Convert registry lot object → Supabase row
+function lotToRow(l) {
+  return {
+    id:              l.id,
+    status:          l.status || 'registered',
+    farm_name:       l.farmName || null,
+    municipality:    l.municipality || null,
+    department:      l.department || null,
+    altitude:        l.altitude ? parseFloat(l.altitude) : null,
+    producer:        l.producer || null,
+    technician0:     l.technician0 || null,
+    varieties:       l.varieties || [],
+    gross_weight:    l.grossWeight ? parseFloat(l.grossWeight) : null,
+    net_weight:      l.netWeight ? parseFloat(l.netWeight) : null,
+    bag_count_reg:   l.bagCountReg ? parseInt(l.bagCountReg) : null,
+    harvest_date:    l.harvestDate || null,
+    ferment_days:    l.fermentDays ? parseInt(l.fermentDays) : null,
+    turns:           l.turns ? parseInt(l.turns) : null,
+    fermentor_type:  l.fermentorType || null,
+    ferment_notes:   l.fermentNotes || null,
+    final_moisture:  l.finalMoisture ? parseFloat(l.finalMoisture) : null,
+    dry_method:      l.dryMethod || null,
+    dry_notes:       l.dryNotes || null,
+    cut_date:        l.cutDate || null,
+    cut_tech:        l.cutTech || null,
+    cut_rows:        l.cutRows || [],
+    cut_blend:       l.cutBlend || {},
+    sensor_notes:    l.sensorNotes || null,
+    bag_count:       l.bagCount ? parseInt(l.bagCount) : null,
+    bag_weight:      l.bagWeight ? parseFloat(l.bagWeight) : null,
+    pack_net_weight: l.packNetWeight ? parseFloat(l.packNetWeight) : null,
+    pack_type:       l.packType || null,
+    buyer:           l.buyer || null,
+    dispatch_date:   l.dispatchDate || null,
+    transport_ref:   l.transportRef || null,
+    observations:    l.observations || null,
+  };
+}
+
+async function persist() {
+  // Settings always local
+  persistSettings();
+}
+
+async function persistLot(lot) {
+  try {
+    const row = lotToRow(lot);
+    const { error } = await provnrClient.from('lots').upsert(row, { onConflict: 'id' });
+    if (error) {
+      console.error('Supabase save error:', error.message);
+      // Fallback to localStorage cache
+      localStorage.setItem('cacao_lots', JSON.stringify(S.lots));
+    }
+  } catch(e) {
+    console.error('Save failed:', e);
+    localStorage.setItem('cacao_lots', JSON.stringify(S.lots));
+  }
+}
+
+async function deleteLotRemote(id) {
+  try {
+    await provnrClient.from('lots').delete().eq('id', id);
+  } catch(e) {
+    console.error('Delete failed:', e);
+  }
+}
+
+async function loadData() {
+  // Settings from localStorage
   try { const s = JSON.parse(localStorage.getItem('cacao_settings')); if(s) Object.assign(S.settings, s); } catch(e) {}
   document.getElementById('orgDisplay').textContent = S.settings.orgCode;
+
+  // Mixes from localStorage (app doesn't create mixes)
+  try { 
+    const cached = JSON.parse(localStorage.getItem('cacao_lots') || '[]');
+    S.lots = cached.filter(l => l.type === 'mix');
+  } catch(e) { S.lots = []; }
+
+  // Show cached state immediately, then fetch fresh from Supabase
+  render();
+
+  try {
+    S.loading = true;
+    const { data, error } = await provnrClient
+      .from('lots')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    // Merge: Supabase lots + local mixes
+    const supabaseLots = (data || []).map(rowToLot);
+    const localMixes = S.lots.filter(l => l.type === 'mix');
+    S.lots = [...supabaseLots, ...localMixes];
+
+    // Cache locally for offline fallback
+    localStorage.setItem('cacao_lots', JSON.stringify(S.lots));
+  } catch(e) {
+    console.warn('Could not load from Supabase, using cache:', e.message);
+    // Already loaded from cache above
+  } finally {
+    S.loading = false;
+    render();
+  }
 }
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -783,6 +942,7 @@ function render() {
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 function renderDashboard() {
+  if (S.loading) return '<div class="empty"><div class="ico">⟳</div><p>Cargando lotes desde Provnr...</p></div>';
   const lots = S.lots.filter(l => l.type === 'lot');
   const mixes = S.lots.filter(l => l.type === 'mix');
   const dispatched = S.lots.filter(l => l.status === 'dispatched');
@@ -1327,6 +1487,7 @@ function saveLotForm(existingId) {
   if (existing) { const idx = S.lots.indexOf(existing); S.lots[idx] = updated; }
   else S.lots.push(updated);
   persist();
+  await persistLot(updated);
   S.editId = id;
   S.view = 'edit-lot';
   render();
@@ -1361,6 +1522,7 @@ function saveMixForm(existingId) {
   if (existing) { const idx = S.lots.indexOf(existing); S.lots[idx] = updated; }
   else S.lots.push(updated);
   persist();
+  localStorage.setItem('cacao_lots', JSON.stringify(S.lots));
   S.editId = id;
   S.view = 'edit-mix';
   render();
@@ -1368,9 +1530,13 @@ function saveMixForm(existingId) {
 
 // ─── Delete ───────────────────────────────────────────────────────────────────
 function promptDelete(id) { S.deleteTarget = id; document.getElementById('deleteModal').style.display='flex'; }
-function confirmDelete() {
+async function confirmDelete() {
+  const target = S.lots.find(l=>l.id===S.deleteTarget);
   S.lots = S.lots.filter(l=>l.id!==S.deleteTarget);
-  persist(); closeModal('deleteModal');
+  persist();
+  localStorage.setItem('cacao_lots', JSON.stringify(S.lots));
+  if (target?.type !== 'mix') await deleteLotRemote(S.deleteTarget);
+  closeModal('deleteModal');
   navigate('dashboard');
 }
 
@@ -1388,7 +1554,7 @@ function saveSettings() {
   S.settings.rut = document.getElementById('s-rut').value.trim();
   S.settings.ica = document.getElementById('s-ica').value.trim();
   document.getElementById('orgDisplay').textContent = S.settings.orgCode;
-  persist(); closeModal('settingsModal');
+  persistSettings(); closeModal('settingsModal');
 }
 function closeModal(id) { document.getElementById(id).style.display='none'; }
 
