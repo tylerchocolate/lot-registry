@@ -682,7 +682,8 @@ const S = {
   search: '',
   deleteTarget: null,
   settings: { orgCode:'ACAC', assocName:'', rut:'', ica:'' },
-  lots: []
+  lots: [],
+  syncPatch: null
 };
 
 // ─── Supabase client ──────────────────────────────────────────────────────────
@@ -1021,7 +1022,8 @@ function stepsDone(lot) {
 }
 
 function renderTab(lot, tab) {
-  const l = lot || {};
+  // Apply any pending sync patch so all tabs get populated
+  const l = S.syncPatch ? Object.assign({}, lot || {}, S.syncPatch) : (lot || {});
   const vars = (l.varieties && l.varieties.length) ? l.varieties : [{name:'',pct:''}];
   if (tab === 0) return `
     <div class="sync-panel">
@@ -1428,6 +1430,7 @@ async function saveLotForm(existingId) {
   if (existing) { const idx = S.lots.indexOf(existing); S.lots[idx] = updated; }
   else S.lots.push(updated);
   await persistLot(updated);
+  S.syncPatch = null;
   S.editId = id;
   S.view = 'edit-lot';
   render();
@@ -1538,7 +1541,7 @@ function setField(id, value) {
   }
 }
 function toDateStr(ts) { return ts ? new Date(ts).toISOString().slice(0,10) : null; }
-function baseStep(step) { return (step||'').replace(/(_\d+)+$/, ''); }
+function baseStep(step) { return (step||'').replace(/_\d+$/, ''); }
 
 async function syncFromProvnr() {
   const lotName = (document.getElementById('syncLotName')?.value || '').trim();
@@ -1598,41 +1601,22 @@ async function syncFromProvnr() {
       }
     }
 
-    // Apply patch to existing lot in S.lots, or create a stub if editing a new lot
+    // Store patch in global state so renderTab can apply it on every tab
+    S.syncPatch = patch;
+
+    // Also apply to existing lot in memory if it exists
     const existingIdx = S.lots.findIndex(l => l.id === S.editId);
     if (existingIdx >= 0) {
       S.lots[existingIdx] = Object.assign({}, S.lots[existingIdx], patch);
-    } else {
-      // New lot — patch will be applied via setField on current tab fields
-      // and re-render will populate other tabs when user navigates to them
-      Object.keys(patch).forEach(k => {
-        const fieldMap = {
-          harvestDate: 'f-harvestDate', farmName: 'f-farmName', producer: 'f-producer',
-          altitude: 'f-altitude', cutDate: 'f-cutDate',
-          fermentStart: 'f-fermentStart', fermentEnd: 'f-fermentEnd', fermentDays: 'f-fermentDays',
-          dryStart: 'f-dryStart', dryEnd: 'f-dryEnd', dryDays: 'f-dryDays',
-        };
-        if (fieldMap[k]) setField(fieldMap[k], patch[k]);
-      });
-      if (patch.harvestDate) updateCodePreview(patch.harvestDate);
     }
 
-    // Re-render the form so all tabs reflect the patched data
-    if (existingIdx >= 0) {
-      const savedTab = S.tab;
-      render();
-      // Re-render restores tab to savedTab automatically
-      // Show status after render
-      setTimeout(() => syncSetStatus(
-        `<strong>✓ ${photos.length} fotos encontradas.</strong> Completados: <span class="sync-field">${filled.join(' · ')}</span><br><span style="opacity:.6;font-size:11px">Revisa todas las pestañas y guarda el lote.</span>`,
-        'ok'
-      ), 50);
-    } else {
-      syncSetStatus(
-        `<strong>✓ ${photos.length} fotos encontradas.</strong> Completados: <span class="sync-field">${filled.join(' · ')}</span><br><span style="opacity:.6;font-size:11px">Completa los campos restantes y guarda.</span>`,
-        'ok'
-      );
-    }
+    // Re-render current tab — renderTab will pick up S.syncPatch
+    render();
+
+    setTimeout(() => syncSetStatus(
+      `<strong>✓ ${photos.length} fotos encontradas.</strong> Completados: <span class="sync-field">${filled.join(' · ')}</span><br><span style="opacity:.6;font-size:11px">Revisa todas las pestañas y guarda el lote.</span>`,
+      'ok'
+    ), 50);
   } catch(e) {
     syncSetStatus('Error: ' + e.message, 'err');
   } finally {
