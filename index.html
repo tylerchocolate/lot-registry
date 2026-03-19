@@ -580,6 +580,13 @@ tr:hover td{background:var(--surface3);cursor:pointer;color:var(--text)}
 .db-dot{width:7px;height:7px;border-radius:50%;background:var(--mint);display:inline-block}
 .db-dot.err{background:#F87171}
 
+
+#printAllTabs { display: none; }
+@media print {
+  #printAllTabs { display: block !important; }
+  .app, .hdr, .body { display: none !important; }
+}
+
 </style>
 </head>
 <body>
@@ -997,7 +1004,7 @@ function renderLotForm(id) {
         ${!isNew ? `<button class="btn btn-d btn-sm" onclick="promptDelete('${lot.id}')">Eliminar</button>` : ''}
       </div>
       <div style="display:flex;gap:8px">
-        ${!isNew ? `<button class="btn btn-e btn-sm no-print" onclick="window.print()">🖨 Imprimir</button>` : ''}
+        ${!isNew ? `<button class="btn btn-e btn-sm no-print" onclick="printAllTabs('${id||''}')">🖨 Imprimir</button>` : ''}
         <button class="btn btn-p" onclick="saveLotForm('${id||''}')">Guardar lote</button>
       </div>
     </div>
@@ -1531,7 +1538,7 @@ function setField(id, value) {
   }
 }
 function toDateStr(ts) { return ts ? new Date(ts).toISOString().slice(0,10) : null; }
-function baseStep(step) { return (step||'').replace(/_\d+$/, ''); }
+function baseStep(step) { return (step||'').replace(/(_\d+)+$/, ''); }
 
 async function syncFromProvnr() {
   const lotName = (document.getElementById('syncLotName')?.value || '').trim();
@@ -1596,6 +1603,45 @@ async function syncFromProvnr() {
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Sincronizar'; }
   }
+}
+
+
+// ─── Print all tabs ───────────────────────────────────────────────────────────
+function printAllTabs(id) {
+  const lot = S.lots.find(l => l.id === id);
+  if (!lot) return;
+  // Build a print-only div with all 4 tabs rendered
+  const printDiv = document.createElement('div');
+  printDiv.id = 'printAllTabs';
+  printDiv.innerHTML = [0,1,2,3].map(i => `
+    <div style="page-break-inside:avoid;margin-bottom:24px">
+      <div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:1.5px;color:#666;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #ddd">
+        ${['1. Registro','2. Fermentación & Secado','3. Prueba de Corte','4. Empaque'][i]}
+      </div>
+      ${renderTabForPrint(lot, i)}
+    </div>
+  `).join('');
+  document.body.appendChild(printDiv);
+  // Hide main content, show print div
+  const main = document.getElementById('main');
+  const origDisplay = main.style.display;
+  main.style.display = 'none';
+  window.print();
+  // Restore
+  main.style.display = origDisplay;
+  document.body.removeChild(printDiv);
+}
+
+function renderTabForPrint(lot, tab) {
+  // Save state, switch tab, render, restore
+  const origTab = S.tab;
+  const origEditId = S.editId;
+  S.tab = tab;
+  S.editId = lot.id;
+  const html = renderTab(lot, tab);
+  S.tab = origTab;
+  S.editId = origEditId;
+  return html;
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
