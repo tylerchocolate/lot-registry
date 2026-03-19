@@ -1138,7 +1138,15 @@ function renderTab(lot, tab) {
     </tbody></table></div>
     <div class="frow f1" style="margin-top:14px">
       <div class="fg"><label>Observaciones sensoriales</label><textarea id="f-sensorNotes">${escH(l.sensorNotes||'')}</textarea></div>
-    </div>`;
+    </div>
+    ${S.crossSectionPhotos && S.crossSectionPhotos.length > 0 ? `
+    <div class="sh" style="margin-top:18px">Fotos de prueba de corte</div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:8px">
+      ${S.crossSectionPhotos.map((url,i) => `<div style="text-align:center">
+        <img src="${url}" alt="Corte ${i+1}" style="width:180px;height:180px;object-fit:cover;border-radius:8px;border:1px solid var(--border2);cursor:pointer" onclick="window.open('${url}','_blank')" onerror="this.parentElement.style.display='none'"/>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:4px">Foto ${i+1}</div>
+      </div>`).join('')}
+    </div>` : ''}`;
   }
 
   if (tab === 3) return `
@@ -1591,6 +1599,23 @@ async function syncFromProvnr() {
     const cutPhotos = photos.filter(p => baseStep(p.step) === 'quality_check');
     if (cutPhotos[0]?.timestamp) { patch.cutDate = toDateStr(cutPhotos[0].timestamp); filled.push('Fecha prueba de corte'); }
 
+    // Fetch public URLs for cross section photos from Supabase Storage
+    S.crossSectionPhotos = [];
+    if (cutPhotos.length > 0) {
+      const { data: cutFiles } = await db.from('photo_metadata')
+        .select('file_path')
+        .eq('session_name', lotName)
+        .like('step', 'quality_check%')
+        .order('timestamp', { ascending: true });
+      if (cutFiles) {
+        S.crossSectionPhotos = cutFiles.map(f => {
+          const { data } = db.storage.from('photos').getPublicUrl(f.file_path);
+          return data?.publicUrl || null;
+        }).filter(Boolean);
+        if (S.crossSectionPhotos.length > 0) filled.push(`${S.crossSectionPhotos.length} foto(s) de corte`);
+      }
+    }
+
     const userId = photos[0]?.user_id;
     if (userId) {
       const { data: profile } = await db.from('profiles').select('name,farm_name,association_name,user_type').eq('id', userId).single();
@@ -1600,6 +1625,10 @@ async function syncFromProvnr() {
         if (profile.name) { patch.producer = profile.name; filled.push('Productor'); }
       }
     }
+
+    // Debug: show exactly what steps were found and what patch was built
+    const stepList = Object.keys(byStep).join(', ') || 'ninguno';
+    const patchStr = Object.entries(patch).map(([k,v]) => `${k}: ${v}`).join(' | ') || 'vacío';
 
     // Store patch in global state so renderTab can apply it on every tab
     S.syncPatch = patch;
@@ -1614,7 +1643,9 @@ async function syncFromProvnr() {
     render();
 
     setTimeout(() => syncSetStatus(
-      `<strong>✓ ${photos.length} fotos encontradas.</strong> Completados: <span class="sync-field">${filled.join(' · ')}</span><br><span style="opacity:.6;font-size:11px">Revisa todas las pestañas y guarda el lote.</span>`,
+      `<strong>✓ ${photos.length} fotos.</strong> Pasos encontrados: <code style="font-size:10px">${stepList}</code><br>` +
+      `Campos: <span class="sync-field" style="font-size:10px">${patchStr}</span><br>` +
+      `<span style="opacity:.6;font-size:11px">Navega a cada pestaña para ver los datos.</span>`,
       'ok'
     ), 50);
   } catch(e) {
