@@ -577,6 +577,8 @@ function showLogin() {
   document.getElementById('l-btn').textContent = 'Entrar';
   document.getElementById('s-btn').disabled = false;
   document.getElementById('s-btn').textContent = 'Crear cuenta';
+  document.getElementById('l-email').value = '';
+  document.getElementById('l-pass').value = '';
 }
 
 function switchTab(tab) {
@@ -661,7 +663,10 @@ sb.auth.onAuthStateChange(async (event, session) => {
   // Only association-level users can access the web registry
   if (profile && profile.user_type === 'farmer') {
     await sb.auth.signOut();
+    document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('l-error').textContent = 'El registro web es solo para asociaciones. Los agricultores usan la app móvil de Provnr.';
+    document.getElementById('l-btn').disabled = false;
+    document.getElementById('l-btn').textContent = 'Entrar';
     return;
   }
 
@@ -675,6 +680,8 @@ sb.auth.onAuthStateChange(async (event, session) => {
   }
 
   currentOrg = profile.organizations;
+  document.getElementById('l-btn').disabled = false;
+  document.getElementById('l-btn').textContent = 'Entrar';
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('no-org-screen').style.display = 'none';
   document.getElementById('app').classList.add('active');
