@@ -550,16 +550,18 @@ async function doLogin() {
   btn.disabled = true;
   btn.textContent = 'Entrando…';
 
-  const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  btn.disabled = false;
+  btn.textContent = 'Entrar';
+
   if (error) {
     err.textContent = error.message === 'Invalid login credentials'
       ? 'Correo o contraseña incorrectos.'
       : error.message;
-    btn.disabled = false;
-    btn.textContent = 'Entrar';
     return;
   }
-  // onAuthStateChange will handle the rest
+
+  await loadSession(data.user);
 }
 
 async function doLogout() {
@@ -649,53 +651,44 @@ document.getElementById('l-email').addEventListener('keydown', e => {
 // ══════════════════════════════════════════════════════
 //  SESSION MANAGEMENT
 // ══════════════════════════════════════════════════════
-sb.auth.onAuthStateChange(async (event, session) => {
-  // Only handle sign-in events — ignore TOKEN_REFRESHED and others to avoid loops
-  if (event === 'SIGNED_OUT' || !session) { showLogin(); return; }
-  if (event !== 'SIGNED_IN' && event !== 'INITIAL_SESSION') return;
+// ── loadSession: shared logic for login + page-reload ──────────────
+async function loadSession(user) {
+  currentUser = user;
 
-  currentUser = session.user;
-
-  // Reset login button immediately so it never appears frozen
-  document.getElementById('l-btn').disabled = false;
-  document.getElementById('l-btn').textContent = 'Entrar';
-
-  // Load profile + org
   const { data: profile, error: profileErr } = await sb
     .from('profiles')
     .select('*, organizations(*)')
-    .eq('user_id', currentUser.id)
+    .eq('user_id', user.id)
     .maybeSingle();
 
   if (profileErr) {
-    console.error('Profile load error:', profileErr.message);
-    document.getElementById('l-error').textContent = 'Error al cargar el perfil. Intenta de nuevo.';
+    document.getElementById('l-error').textContent = 'Error al cargar perfil: ' + profileErr.message;
     await sb.auth.signOut();
+    showLogin();
     return;
   }
 
-  // Only association-level users can access the web registry
   if (profile && profile.user_type === 'farmer') {
     await sb.auth.signOut();
-    document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('l-error').textContent = 'El registro web es solo para asociaciones. Los agricultores usan la app móvil de Provnr.';
+    showLogin();
     return;
   }
 
   if (!profile || !profile.org_id) {
+    document.getElementById('no-org-reason').textContent = 'Tu cuenta no está vinculada a ninguna organización. Contacta al administrador de Provnr.';
+    document.getElementById('no-org-email').textContent = user.email;
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('no-org-screen').style.display = 'flex';
-    document.getElementById('no-org-email').textContent = currentUser.email;
-    document.getElementById('no-org-reason').textContent = 'Tu cuenta no está vinculada a ninguna organización. Contacta al administrador de Provnr.';
     document.getElementById('app').classList.remove('active');
     return;
   }
 
   if (!profile.organizations) {
+    document.getElementById('no-org-reason').textContent = 'Organización no encontrada. Contacta al administrador de Provnr.';
+    document.getElementById('no-org-email').textContent = user.email;
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('no-org-screen').style.display = 'flex';
-    document.getElementById('no-org-email').textContent = currentUser.email;
-    document.getElementById('no-org-reason').textContent = 'Organización no encontrada. Contacta al administrador de Provnr.';
     document.getElementById('app').classList.remove('active');
     return;
   }
@@ -704,10 +697,17 @@ sb.auth.onAuthStateChange(async (event, session) => {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('no-org-screen').style.display = 'none';
   document.getElementById('app').classList.add('active');
-  document.getElementById('user-email').textContent = currentUser.email;
+  document.getElementById('user-email').textContent = user.email;
   document.getElementById('org-badge').textContent = `Org: ${currentOrg.code}`;
   setDbStatus('online');
   await loadData();
+}
+
+// ── onAuthStateChange: only for page-reload session restore ──────────
+sb.auth.onAuthStateChange(async (event, session) => {
+  if (event === 'SIGNED_OUT' || !session) { showLogin(); return; }
+  // Only restore on page reload — doLogin() handles the fresh login case
+  if (event === 'INITIAL_SESSION') await loadSession(session.user);
 });
 
 // ══════════════════════════════════════════════════════
