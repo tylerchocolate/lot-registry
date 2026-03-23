@@ -265,6 +265,31 @@
   .empty-state h3 { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
   .empty-state p { font-size: 13px; }
 
+  /* ── Photo gallery ── */
+  .photo-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 12px; }
+  .photo-thumb {
+    position: relative; border-radius: var(--radius); overflow: hidden;
+    border: 1px solid var(--border); aspect-ratio: 1; cursor: pointer;
+    transition: border .2s;
+  }
+  .photo-thumb:hover { border-color: var(--border-hover); }
+  .photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo-thumb .photo-ts {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: rgba(0,0,0,.6); font-size: 10px; color: #ccc;
+    padding: 3px 6px; text-align: center;
+  }
+  .photo-step-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px;
+    color: var(--green); margin-bottom: 8px; margin-top: 16px;
+  }
+  .photos-empty { font-size: 12px; color: var(--text-dim); font-style: italic; padding: 8px 0; }
+  .from-app-badge {
+    display: inline-block; font-size: 10px; font-weight: 700; color: var(--green);
+    background: rgba(144,238,130,.1); border: 1px solid rgba(144,238,130,.2);
+    border-radius: 4px; padding: 1px 6px; margin-left: 8px; vertical-align: middle;
+  }
+
   /* ── Export btn ── */
   .btn-export {
     padding: 7px 16px; background: none; border: 1px solid var(--border);
@@ -278,6 +303,25 @@
     font-weight: 800; cursor: pointer; transition: background .2s;
   }
   .btn-new:hover { background: var(--green-dim); }
+
+  /* ── Print styles ── */
+  @media print {
+    #sidebar, #topbar, .form-back, .form-actions, .btn-add, .btn-rm,
+    .cut-row button, #nav-dashboard, #nav-lots, #nav-mezclas { display: none !important; }
+    #layout { overflow: visible; }
+    #content { padding: 0; overflow: visible; }
+    #app { height: auto; }
+    .photo-thumb { break-inside: avoid; }
+    .form-section { break-inside: avoid; }
+    body { background: #fff !important; color: #000 !important; }
+    .form-section-title { color: #000 !important; border-color: #ccc !important; }
+    .code-badge { background: #f0f0f0 !important; color: #000 !important; border-color: #ccc !important; }
+    .status-badge { border: 1px solid #ccc !important; color: #000 !important; background: #f0f0f0 !important; }
+    input, select, textarea { border: 1px solid #ccc !important; background: #fff !important; color: #000 !important; }
+    /* Only show the cut test photo section, hide all other photo sections */
+    .photo-gallery { display: grid !important; }
+    .from-app-badge { display: none; }
+  }
 
   /* ── Confirm modal ── */
   #confirm-modal .modal-title { color: var(--red); }
@@ -902,7 +946,7 @@ function renderCurrentView() {
     renderMezclaList();
   } else if (currentView === 'lot-form') {
     document.getElementById('view-lot-form').style.display = '';
-    renderLotForm(editingLot);
+    renderLotForm(editingLot);  // async — fires and forgets, shows loading state
   } else if (currentView === 'mezcla-form') {
     document.getElementById('view-mezcla-form').style.display = '';
     renderMezclaForm(editingMezcla);
@@ -1012,21 +1056,97 @@ function newLot() {
   renderCurrentView();
 }
 
-function editLot(id) {
+async function editLot(id) {
   editingLot = lots.find(l => l.id === id) || null;
   currentView = 'lot-form';
   renderCurrentView();
 }
 
-function renderLotForm(lot) {
+async function renderLotForm(lot) {
   const isNew = !lots.find(l => l.id === lot.id);
   const v = (lot.varieties||[]).map((vv,i) => varRow(vv,i)).join('');
   const cr = (lot.cutRows||[]).map((r,i) => cutRowHtml(r,i)).join('');
 
+  // Fetch photo metadata for this lot
+  let photoMeta = [];
+  if (!isNew) {
+    const { data: pm } = await sb.from('photo_metadata')
+      .select('step, file_path, gps_altitude, gps_latitude, gps_longitude, timestamp, session_name')
+      .eq('session_name', lot.id)
+      .order('timestamp', { ascending: true });
+    photoMeta = pm || [];
+
+    // Auto-populate empty fields from photo metadata
+    if (photoMeta.length > 0) {
+      // Altitude: take first photo with GPS altitude
+      if (!lot.altitude) {
+        const withAlt = photoMeta.find(p => p.gps_altitude);
+        if (withAlt) lot.altitude = parseFloat(withAlt.gps_altitude.toFixed(1));
+      }
+      // Harvest date from receiving/harvest photos
+      if (!lot.harvestDate) {
+        const harvestSteps = ['receiving','harvest_collection','harvest_weight'];
+        const hp = photoMeta.find(p => harvestSteps.some(s => p.step?.startsWith(s)));
+        if (hp) lot.harvestDate = hp.timestamp?.slice(0,10);
+      }
+      // Ferment start from ferment_1 photos
+      if (!lot.fermentStart) {
+        const fp = photoMeta.find(p => p.step?.startsWith('ferment_1'));
+        if (fp) lot.fermentStart = fp.timestamp?.slice(0,10);
+      }
+      // Ferment end from ferment_2 photos
+      if (!lot.fermentEnd) {
+        const fp = photoMeta.find(p => p.step?.startsWith('ferment_2'));
+        if (fp) lot.fermentEnd = fp.timestamp?.slice(0,10);
+      }
+      // Dry start from drying_1 photos
+      if (!lot.dryStart) {
+        const dp = photoMeta.find(p => p.step?.startsWith('drying_1'));
+        if (dp) lot.dryStart = dp.timestamp?.slice(0,10);
+      }
+      // Dry end from drying_2 photos
+      if (!lot.dryEnd) {
+        const dp = photoMeta.find(p => p.step?.startsWith('drying_2'));
+        if (dp) lot.dryEnd = dp.timestamp?.slice(0,10);
+      }
+      // Cut date from quality_check photos
+      if (!lot.cutDate) {
+        const qp = photoMeta.find(p => p.step?.startsWith('quality_check'));
+        if (qp) lot.cutDate = qp.timestamp?.slice(0,10);
+      }
+    }
+  }
+
+  // Build photo galleries per step
+  const STEP_LABELS = {
+    receiving: 'Recepción',
+    harvest_collection: 'Recolección',
+    harvest_weight: 'Peso cosecha',
+    ferment_1: 'Fermentación paso 1',
+    ferment_2: 'Fermentación paso 2',
+    drying_1: 'Secado paso 1',
+    drying_2: 'Secado paso 2',
+    quality_check: 'Corte de calidad',
+    qr_scan: 'Código QR / Despacho',
+  };
+  function photoGalleryHtml(stepPrefix) {
+    const photos = photoMeta.filter(p => p.step?.startsWith(stepPrefix));
+    if (!photos.length) return '<div class="photos-empty">Sin fotos registradas</div>';
+    return '<div class="photo-gallery">' + photos.map(p => {
+      const url = `https://nlcpgqutjscdmxzmkckb.supabase.co/storage/v1/object/public/photos/${p.file_path}`;
+      const ts = p.timestamp ? new Date(p.timestamp).toLocaleString('es-CO', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+      return `<div class="photo-thumb" onclick="window.open('${url}','_blank')"><img src="${url}" loading="lazy" onerror="this.parentElement.style.display='none'"/><div class="photo-ts">${ts}</div></div>`;
+    }).join('') + '</div>';
+  }
+  const hasPhotos = photoMeta.length > 0;
+
+  // Show loading state while fetching photos
+  document.getElementById('lot-form-inner').innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-dim)">Cargando datos del lote…</div>';
+
   document.getElementById('lot-form-inner').innerHTML = `
     <button class="form-back" onclick="backToList()">← Volver</button>
     <div class="form-title">${isNew ? 'Nuevo Lote' : 'Editar Lote'}</div>
-    <div class="form-subtitle">Código: <span class="code-badge">${escH(lot.id)}</span></div>
+    <div class="form-subtitle">Código: <span class="code-badge">${escH(lot.id)}</span>${hasPhotos ? '<span class="from-app-badge">📱 datos de la app</span>' : ''}</div>
 
     <div id="lot-form-el">
       <!-- Estado -->
@@ -1128,6 +1248,11 @@ function renderLotForm(lot) {
         <div class="form-grid" style="margin-top:16px;">
           <div class="form-group full"><label>Notas de sensores</label><textarea id="f-sensorNotes">${escH(lot.sensorNotes)}</textarea></div>
         </div>
+        ${photoMeta.filter(p => p.step?.startsWith('quality_check')).length > 0 ? `
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--green);margin-bottom:10px;">Fotos del corte — aparecen en el documento impreso</div>
+          ${photoGalleryHtml('quality_check')}
+        </div>` : ''}
       </div>
 
       <!-- Empaque & Despacho -->
@@ -1150,6 +1275,7 @@ function renderLotForm(lot) {
       <div class="form-actions">
         <button class="btn-save" id="save-btn" onclick="saveLotForm()">Guardar lote</button>
         <button class="btn-cancel" onclick="backToList()">Cancelar</button>
+        <button class="btn-icon" onclick="window.print()" style="margin-left:auto;">🖨 Imprimir</button>
       </div>
     </div>
   `;
