@@ -650,23 +650,35 @@ document.getElementById('l-email').addEventListener('keydown', e => {
 //  SESSION MANAGEMENT
 // ══════════════════════════════════════════════════════
 sb.auth.onAuthStateChange(async (event, session) => {
-  if (!session) { showLogin(); return; }
+  // Only handle sign-in events — ignore TOKEN_REFRESHED and others to avoid loops
+  if (event === 'SIGNED_OUT' || !session) { showLogin(); return; }
+  if (event !== 'SIGNED_IN' && event !== 'INITIAL_SESSION') return;
+
   currentUser = session.user;
 
+  // Reset login button immediately so it never appears frozen
+  document.getElementById('l-btn').disabled = false;
+  document.getElementById('l-btn').textContent = 'Entrar';
+
   // Load profile + org
-  const { data: profile } = await sb
+  const { data: profile, error: profileErr } = await sb
     .from('profiles')
     .select('*, organizations(*)')
     .eq('user_id', currentUser.id)
     .maybeSingle();
+
+  if (profileErr) {
+    console.error('Profile load error:', profileErr.message);
+    document.getElementById('l-error').textContent = 'Error al cargar el perfil. Intenta de nuevo.';
+    await sb.auth.signOut();
+    return;
+  }
 
   // Only association-level users can access the web registry
   if (profile && profile.user_type === 'farmer') {
     await sb.auth.signOut();
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('l-error').textContent = 'El registro web es solo para asociaciones. Los agricultores usan la app móvil de Provnr.';
-    document.getElementById('l-btn').disabled = false;
-    document.getElementById('l-btn').textContent = 'Entrar';
     return;
   }
 
@@ -679,9 +691,16 @@ sb.auth.onAuthStateChange(async (event, session) => {
     return;
   }
 
+  if (!profile.organizations) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('no-org-screen').style.display = 'flex';
+    document.getElementById('no-org-email').textContent = currentUser.email;
+    document.getElementById('no-org-reason').textContent = 'Organización no encontrada. Contacta al administrador de Provnr.';
+    document.getElementById('app').classList.remove('active');
+    return;
+  }
+
   currentOrg = profile.organizations;
-  document.getElementById('l-btn').disabled = false;
-  document.getElementById('l-btn').textContent = 'Entrar';
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('no-org-screen').style.display = 'none';
   document.getElementById('app').classList.add('active');
