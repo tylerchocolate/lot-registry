@@ -349,8 +349,8 @@
 ══════════════════════════════════════════════════════ -->
 <div id="no-org-screen" style="display:none;">
   <div class="no-org-card">
-    <h2>Cuenta sin organización</h2>
-    <p>Tu cuenta no está vinculada a ninguna organización. Esto puede pasar si tu código de organización era incorrecto al registrarte. Contacta al administrador de Provnr.</p>
+    <h2>Acceso no disponible</h2>
+    <p id="no-org-reason">Tu cuenta no está vinculada a ninguna organización. Contacta al administrador de Provnr.</p>
     <p style="font-size:12px; margin-bottom:20px;" id="no-org-email"></p>
     <button class="btn-ghost" onclick="doLogout()">Cerrar sesión</button>
   </div>
@@ -629,7 +629,8 @@ async function doSignup() {
     await sb.from('profiles').upsert({
       user_id: userId,
       org_id: org.id,
-      role: 'member'
+      role: 'member',
+      user_type: 'association'
     }, { onConflict: 'user_id' });
   }
   // onAuthStateChange will handle the rest — user lands in the app
@@ -657,11 +658,18 @@ sb.auth.onAuthStateChange(async (event, session) => {
     .eq('user_id', currentUser.id)
     .maybeSingle();
 
+  // Only association-level users can access the web registry
+  if (profile && profile.user_type === 'farmer') {
+    await sb.auth.signOut();
+    document.getElementById('l-error').textContent = 'El registro web es solo para asociaciones. Los agricultores usan la app móvil de Provnr.';
+    return;
+  }
+
   if (!profile || !profile.org_id) {
-    // User has no org assigned yet
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('no-org-screen').style.display = 'flex';
     document.getElementById('no-org-email').textContent = currentUser.email;
+    document.getElementById('no-org-reason').textContent = 'Tu cuenta no está vinculada a ninguna organización. Contacta al administrador de Provnr.';
     document.getElementById('app').classList.remove('active');
     return;
   }
