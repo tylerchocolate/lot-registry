@@ -333,9 +333,13 @@
         <label for="s-pass2">Confirmar contraseña</label>
         <input type="password" id="s-pass2" placeholder="Repite tu contraseña"/>
       </div>
+      <div>
+        <label for="s-orgcode">Código de organización</label>
+        <input type="text" id="s-orgcode" placeholder="Ej: ACAC" maxlength="6" style="text-transform:uppercase"/>
+        <div style="font-size:11px;color:var(--text-dim);margin-top:4px;">Tu código lo proporciona el administrador de tu asociación.</div>
+      </div>
       <div class="login-error" id="s-error"></div>
       <button class="btn-primary" id="s-btn" onclick="doSignup()">Crear cuenta</button>
-      <div class="login-hint">Tu cuenta quedará pendiente hasta que un administrador te asigne a una organización.</div>
     </div>
   </div>
 </div>
@@ -346,7 +350,7 @@
 <div id="no-org-screen" style="display:none;">
   <div class="no-org-card">
     <h2>Cuenta sin organización</h2>
-    <p>Tu cuenta aún no está vinculada a ninguna organización. Contacta al administrador de Provnr para que te asigne a tu asociación.</p>
+    <p>Tu cuenta no está vinculada a ninguna organización. Esto puede pasar si tu código de organización era incorrecto al registrarte. Contacta al administrador de Provnr.</p>
     <p style="font-size:12px; margin-bottom:20px;" id="no-org-email"></p>
     <button class="btn-ghost" onclick="doLogout()">Cerrar sesión</button>
   </div>
@@ -583,25 +587,52 @@ function switchTab(tab) {
 }
 
 async function doSignup() {
-  const email = document.getElementById('s-email').value.trim();
-  const pass  = document.getElementById('s-pass').value;
-  const pass2 = document.getElementById('s-pass2').value;
-  const btn   = document.getElementById('s-btn');
-  const err   = document.getElementById('s-error');
+  const email   = document.getElementById('s-email').value.trim();
+  const pass    = document.getElementById('s-pass').value;
+  const pass2   = document.getElementById('s-pass2').value;
+  const orgCode = document.getElementById('s-orgcode').value.trim().toUpperCase();
+  const btn     = document.getElementById('s-btn');
+  const err     = document.getElementById('s-error');
   err.textContent = '';
 
-  if (!email) { err.textContent = 'Ingresa tu correo.'; return; }
+  if (!email)          { err.textContent = 'Ingresa tu correo.'; return; }
   if (pass.length < 6) { err.textContent = 'La contraseña debe tener al menos 6 caracteres.'; return; }
-  if (pass !== pass2) { err.textContent = 'Las contraseñas no coinciden.'; return; }
+  if (pass !== pass2)  { err.textContent = 'Las contraseñas no coinciden.'; return; }
+  if (!orgCode)        { err.textContent = 'Ingresa el código de tu organización.'; return; }
 
-  btn.disabled = true; btn.textContent = 'Creando cuenta…';
-  const { error } = await sb.auth.signUp({ email, password: pass });
-  if (error) {
-    err.textContent = error.message;
+  btn.disabled = true; btn.textContent = 'Verificando organización…';
+
+  // Check org code exists BEFORE creating account
+  const { data: org, error: orgErr } = await sb
+    .from('organizations')
+    .select('id, code, name')
+    .eq('code', orgCode)
+    .maybeSingle();
+
+  if (orgErr || !org) {
+    err.textContent = `Código de organización "${orgCode}" no encontrado. Verifica con tu administrador.`;
     btn.disabled = false; btn.textContent = 'Crear cuenta';
     return;
   }
-  // onAuthStateChange will fire and handle redirect to no-org screen
+
+  btn.textContent = 'Creando cuenta…';
+  const { data: signUpData, error: signUpErr } = await sb.auth.signUp({ email, password: pass });
+  if (signUpErr) {
+    err.textContent = signUpErr.message;
+    btn.disabled = false; btn.textContent = 'Crear cuenta';
+    return;
+  }
+
+  // Link user to org immediately using their new user id
+  const userId = signUpData?.user?.id;
+  if (userId) {
+    await sb.from('profiles').upsert({
+      user_id: userId,
+      org_id: org.id,
+      role: 'member'
+    }, { onConflict: 'user_id' });
+  }
+  // onAuthStateChange will handle the rest — user lands in the app
 }
 
 // Enter key on login
