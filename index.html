@@ -235,8 +235,8 @@
   .btn-cancel:hover { border-color: var(--border-hover); color: var(--text); }
 
   /* Variety rows */
-  .variety-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
-  .variety-row input { flex: 1; }
+  .variety-row { display: grid; grid-template-columns: 1fr 80px 36px; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .variety-row input { width: 100%; }
   .btn-rm { padding: 6px 10px; background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--red); cursor: pointer; font-size: 12px; font-weight: 700; }
   .btn-add { padding: 7px 14px; background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--text-dim); cursor: pointer; font-size: 12px; font-weight: 700; transition: all .15s; }
   .btn-add:hover { border-color: var(--border-hover); color: var(--text); }
@@ -1049,7 +1049,7 @@ function renderLotList() {
 }
 
 function lotRow(l, dash) {
-  const vars = (l.varieties||[]).join(', ') || '—';
+  const vars = (l.varieties||[]).map(v => typeof v === 'object' ? (v.name||'')+(v.pct?` ${v.pct}%`:'') : v).filter(Boolean).join(', ') || '—';
   const farm = l.farmName || l.producer || '—';
   const muni = dash ? '' : `<td class="text-dim">${escH(l.municipality||'—')}</td>`;
   return `<tr onclick="editLot('${l.id}')">
@@ -1235,7 +1235,9 @@ async function renderLotForm(lot) {
           <div class="form-group"><label>N.° sacos (registro)</label><input id="f-bagCountReg" type="number" value="${escH(lot.bagCountReg)}"/></div>
         </div>
         <div style="margin-top:16px;">
-          <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);display:block;margin-bottom:10px;">Variedades</label>
+          <div style="display:grid;grid-template-columns:1fr 80px 36px;gap:8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:6px;">
+            <span>Variedad</span><span>% Mezcla</span><span></span>
+          </div>
           <div id="variety-list">${v}</div>
           <button class="btn-add" onclick="addVariety()">+ Variedad</button>
         </div>
@@ -1288,19 +1290,36 @@ async function renderLotForm(lot) {
           <div class="form-group"><label>Fecha de corte</label><input id="f-cutDate" type="date" value="${escH(lot.cutDate)}"/></div>
           <div class="form-group"><label>Técnico de corte</label><input id="f-cutTech" value="${escH(lot.cutTech)}"/></div>
         </div>
-        <div style="margin-top:14px;">
-          <div style="display:grid;grid-template-columns:1fr 80px 80px 80px 80px 36px;gap:8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:6px;padding:0 4px;">
-            <span>Descripción</span><span>N°</span><span>Buenos</span><span>Malos</span><span>%</span><span></span>
-          </div>
-          <div id="cut-rows">${cr}</div>
-          <button class="btn-add" onclick="addCutRow()">+ Fila</button>
+        <div style="margin-top:14px;overflow-x:auto;">
+          ${(()=>{
+            const NTC = ['Bien fermentados (%)','Mediamente fermentados (%)','Violeta / pizarroso (%)','Mohosos internos (%)','Germinados (%)','Insectados (%)','Planos / vanos (%)','Índice de grano (g/grano)'];
+            const vars = lot.varieties||[];
+            const varCols = vars.map((v,vi) => `<th style="min-width:80px;font-size:10px;">${escH(typeof v==='object'?v.name:v)}</th>`).join('');
+            const rows = NTC.map((param, ri) => {
+              const stored = (lot.cutRows||[])[ri] || {};
+              const varInputs = vars.map((v,vi) => `<td><input type="number" style="width:72px;padding:4px 6px;" value="${escH(stored['v'+vi]||'')}" id="cr-v${vi}-${ri}" placeholder=""/></td>`).join('');
+              return `<tr>
+                <td style="font-size:11px;white-space:nowrap;">${escH(param)}</td>
+                ${varInputs}
+                <td><input type="number" style="width:72px;padding:4px 6px;" value="${escH(stored.mezcla||'')}" id="cr-m-${ri}" placeholder=""/></td>
+              </tr>`;
+            }).join('');
+            return `<table style="width:100%;border-collapse:collapse;font-size:11px;">
+              <thead><tr style="background:var(--surface2);">
+                <th style="text-align:left;padding:6px 8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border);">Parámetro</th>
+                ${varCols}
+                <th style="min-width:80px;font-size:10px;border-bottom:1px solid var(--border);">Mezcla</th>
+              </tr></thead>
+              <tbody>${rows}</tbody>
+            </table>`;
+          })()}
         </div>
         <div class="form-grid" style="margin-top:16px;">
-          <div class="form-group full"><label>Notas de sensores</label><textarea id="f-sensorNotes">${escH(lot.sensorNotes)}</textarea></div>
+          <div class="form-group full"><label>Observaciones sensoriales</label><textarea id="f-sensorNotes">${escH(lot.sensorNotes)}</textarea></div>
         </div>
         ${photoMeta.filter(p => p.step?.startsWith('quality_check')).length > 0 ? `
         <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--green);margin-bottom:10px;">Fotos del corte — aparecen en el documento impreso</div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--green);margin-bottom:10px;">Fotos del corte</div>
           ${photoGalleryHtml('quality_check')}
         </div>` : ''}
       </div>
@@ -1332,8 +1351,11 @@ async function renderLotForm(lot) {
 }
 
 function varRow(val, i) {
+  const name = typeof val === 'object' ? (val.name||'') : (val||'');
+  const pct  = typeof val === 'object' ? (val.pct||'')  : '';
   return `<div class="variety-row" id="var-row-${i}">
-    <input type="text" value="${escH(val)}" placeholder="Nombre de variedad" id="var-${i}"/>
+    <input type="text" value="${escH(name)}" placeholder="Nombre variedad" id="var-name-${i}"/>
+    <input type="number" value="${escH(pct)}" placeholder="% mezcla" id="var-pct-${i}" min="0" max="100"/>
     <button class="btn-rm" onclick="removeVariety(${i})">−</button>
   </div>`;
 }
@@ -1349,8 +1371,13 @@ function removeVariety(i) {
 }
 
 function getVarieties() {
-  return Array.from(document.querySelectorAll('[id^="var-"]'))
-    .map(el => el.value.trim()).filter(Boolean);
+  const rows = document.querySelectorAll('[id^="var-row-"]');
+  return Array.from(rows).map(row => {
+    const i = row.id.replace('var-row-','');
+    const name = document.getElementById('var-name-'+i)?.value.trim() || '';
+    const pct  = document.getElementById('var-pct-'+i)?.value.trim()  || '';
+    return name ? { name, pct } : null;
+  }).filter(Boolean);
 }
 
 function cutRowHtml(r, i) {
@@ -1364,27 +1391,17 @@ function cutRowHtml(r, i) {
   </div>`;
 }
 
-function addCutRow() {
-  const list = document.getElementById('cut-rows');
-  const i = list.children.length;
-  list.insertAdjacentHTML('beforeend', cutRowHtml({}, i));
-}
-
-function removeCutRow(i) {
-  document.getElementById('cut-row-'+i)?.remove();
-}
 
 function getCutRows() {
-  return Array.from(document.querySelectorAll('[id^="cut-row-"]')).map(row => {
-    const i = row.id.replace('cut-row-','');
-    return {
-      desc:  document.getElementById('cr-desc-'+i)?.value || '',
-      total: document.getElementById('cr-total-'+i)?.value || '',
-      good:  document.getElementById('cr-good-'+i)?.value || '',
-      bad:   document.getElementById('cr-bad-'+i)?.value || '',
-      pct:   document.getElementById('cr-pct-'+i)?.value || ''
-    };
-  }).filter(r => r.desc || r.total);
+  // Fixed 8 NTC 1252 params; columns are dynamic per variety count
+  const numVars = getVarieties().length;
+  return Array.from({length: 8}, (_, ri) => {
+    const row = { mezcla: document.getElementById('cr-m-'+ri)?.value || '' };
+    for (let vi = 0; vi < numVars; vi++) {
+      row['v'+vi] = document.getElementById(`cr-v${vi}-${ri}`)?.value || '';
+    }
+    return row;
+  });
 }
 
 function calcDays(prefix) {
@@ -1658,10 +1675,15 @@ function buildAndPrint() {
   const d = v => (v !== undefined && v !== null && v !== '') ? escH(String(v)) : '<span class="empty">—</span>';
   const dateStr = v => v ? new Date(v + 'T12:00:00').toLocaleDateString('es-CO', {day:'2-digit',month:'2-digit',year:'numeric'}) : '—';
 
-  // Varieties
-  const varTags = (l.varieties||[]).filter(Boolean).map(v => `<span class="pd-variety-tag">${escH(v)}</span>`).join('');
+  // Varieties — {name, pct} objects
+  const varieties = (l.varieties||[]).filter(Boolean);
+  const varTags = varieties.map(v => {
+    const name = typeof v === 'object' ? v.name : v;
+    const pct  = typeof v === 'object' ? v.pct  : '';
+    return `<span class="pd-variety-tag">${escH(name)}${pct ? ' · '+escH(pct)+'%' : ''}</span>`;
+  }).join('');
 
-  // Cut test rows — use stored cutRows OR build from the NTC 1252 standard params
+  // Cut test — dynamic variety columns
   const NTC_PARAMS = [
     { desc: 'Bien fermentados (%)',        ref: '≥ 65 %' },
     { desc: 'Mediamente fermentados (%)',  ref: '≤ 10 %' },
@@ -1673,15 +1695,21 @@ function buildAndPrint() {
     { desc: 'Índice de grano (g/grano)',   ref: '≥ 1.2 g' },
   ];
   const storedRows = l.cutRows || [];
+  const varHeaders = varieties.map(v => {
+    const name = typeof v === 'object' ? v.name : v;
+    return `<th class="right">${escH(name)}</th>`;
+  }).join('');
   const cutTableRows = NTC_PARAMS.map((p, i) => {
     const r = storedRows[i] || {};
-    const pct = r.pct !== undefined && r.pct !== '' ? r.pct + ' %' : '';
+    const varCells = varieties.map((v, vi) => {
+      const val = r['v'+vi] || '';
+      return `<td class="right">${val}</td>`;
+    }).join('');
+    const mezcla = r.mezcla || '';
     return `<tr>
       <td>${p.desc}</td>
-      <td class="right">${r.total || ''}</td>
-      <td class="right">${r.good || ''}</td>
-      <td class="right">${r.bad || ''}</td>
-      <td class="right">${pct}</td>
+      ${varCells}
+      <td class="right">${mezcla}</td>
       <td class="right pd-ntc">${p.ref}</td>
     </tr>`;
   }).join('');
@@ -1732,7 +1760,17 @@ function buildAndPrint() {
           <div class="pd-field"><label>Técnico responsable</label><div class="pd-val">${d(l.technician0)}</div></div>
         </div>
         <div class="pd-field" style="margin-top:4px;"><label>Variedades</label>
-          <div class="pd-varieties">${varTags || '<span class="empty" style="font-size:10px;color:#bbb;">—</span>'}</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;margin-top:4px;">
+            ${varieties.length ? varieties.map((v,i) => {
+              const name = typeof v==='object' ? v.name : v;
+              const pct  = typeof v==='object' ? v.pct  : '';
+              return `<div style="border:1px solid #ccc;border-radius:3px;padding:4px 8px;">
+                <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#888;">Variedad ${i+1}</div>
+                <div style="font-size:11px;font-weight:700;">${escH(name)}</div>
+                ${pct ? `<div style="font-size:9px;color:#555;">% en mezcla: <strong>${escH(pct)}</strong></div>` : ''}
+              </div>`;
+            }).join('') : '<span style="font-size:10px;color:#bbb;">—</span>'}
+          </div>
         </div>
         <div class="pd-grid-3" style="margin-top:8px;">
           <div class="pd-field"><label>Peso bruto (kg)</label><div class="pd-val">${d(l.grossWeight)}</div></div>
