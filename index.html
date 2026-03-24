@@ -848,6 +848,7 @@ function rowToLot(r) {
     farmName: r.farm_name || '', municipality: r.municipality || '',
     department: r.department || '', altitude: r.altitude || '',
     producer: r.producer || '', technician0: r.technician0 || '',
+    farmIca: r.farm_ica || '',
     varieties: r.varieties || [],
     grossWeight: r.gross_weight || '', netWeight: r.net_weight || '',
     bagCountReg: r.bag_count_reg || '', harvestDate: r.harvest_date || '',
@@ -877,6 +878,7 @@ function lotToRow(l) {
     department: l.department || null,
     altitude: l.altitude ? parseFloat(l.altitude) : null,
     producer: l.producer || null, technician0: l.technician0 || null,
+    farm_ica: l.farmIca || null,
     varieties: l.varieties || [],
     gross_weight:  l.grossWeight   ? parseFloat(l.grossWeight)  : null,
     net_weight:    l.netWeight     ? parseFloat(l.netWeight)    : null,
@@ -1232,6 +1234,7 @@ async function renderLotForm(lot) {
           <div class="form-group"><label>Departamento</label><input id="f-department" value="${escH(lot.department)}"/></div>
           <div class="form-group"><label>Altitud (msnm)</label><input id="f-altitude" type="number" value="${escH(lot.altitude)}"/></div>
           <div class="form-group"><label>Técnico</label><input id="f-technician0" value="${escH(lot.technician0)}"/></div>
+          <div class="form-group"><label>ICA de la finca / productor</label><input id="f-farmIca" value="${escH(lot.farmIca)}" placeholder="Número ICA (si aplica)"/></div>
         </div>
       </div>
 
@@ -1791,12 +1794,21 @@ function buildAndPrint() {
           <div class="pd-field"><label>Estado</label><div class="pd-val">${statusLbl}</div></div>
         </div>
         <div class="pd-grid">
-          <div class="pd-field"><label>Nombre de la finca / asociación</label><div class="pd-val">${d(l.farmName)}</div></div>
-          <div class="pd-field"><label>Productor / Contacto</label><div class="pd-val">${d(l.producer)}</div></div>
+          <div class="pd-field"><label>Nombre de la finca / productor</label><div class="pd-val">${d(l.farmName)}</div></div>
+          <div class="pd-field"><label>ICA de la finca / productor</label><div class="pd-val">${d(l.farmIca)}</div></div>
           <div class="pd-field"><label>Municipio</label><div class="pd-val">${d(l.municipality)}</div></div>
           <div class="pd-field"><label>Departamento</label><div class="pd-val">${d(l.department)}</div></div>
           <div class="pd-field"><label>Altitud (m.s.n.m.)</label><div class="pd-val">${d(l.altitude)}</div></div>
+          <div class="pd-field"><label>Productor / Contacto</label><div class="pd-val">${d(l.producer)}</div></div>
           <div class="pd-field"><label>Técnico responsable</label><div class="pd-val">${d(l.technician0)}</div></div>
+        </div>
+        <div style="margin-top:10px;padding:8px 10px;background:#f8f8f8;border:1px solid #e0e0e0;border-radius:4px;">
+          <div style="font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#555;margin-bottom:6px;">Asociación responsable</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
+            <div class="pd-field"><label>Nombre</label><div class="pd-val">${escH(currentOrg?.name || '—')}</div></div>
+            <div class="pd-field"><label>NIT / RUT</label><div class="pd-val">${escH(currentOrg?.rut || '—')}</div></div>
+            <div class="pd-field"><label>ICA</label><div class="pd-val">${escH(currentOrg?.ica_number || '—')}</div></div>
+          </div>
         </div>
         <div class="pd-field" style="margin-top:4px;"><label>Variedades</label>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;margin-top:4px;">
