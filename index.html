@@ -265,6 +265,16 @@
   .empty-state h3 { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
   .empty-state p { font-size: 13px; }
 
+  /* ── Tolerance hints ── */
+  .tol { font-size: 10px; color: var(--text-dim); margin-top: 2px; font-style: italic; }
+  .tol.pass { color: #6fb848; }
+  .tol.fail { color: #f44336; }
+  .tol-badge {
+    display: inline-block; font-size: 9px; font-weight: 700; color: var(--text-dim);
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 3px;
+    padding: 1px 5px; margin-left: 6px; vertical-align: middle; letter-spacing: 0.3px;
+  }
+
   /* ── Photo gallery ── */
   .photo-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 12px; }
   .photo-thumb {
@@ -1270,7 +1280,7 @@ async function renderLotForm(lot) {
           <div class="form-group"><label>Inicio</label><input id="f-dryStart" type="date" value="${escH(lot.dryStart)}" oninput="calcDays('dry')"/></div>
           <div class="form-group"><label>Fin</label><input id="f-dryEnd" type="date" value="${escH(lot.dryEnd)}" oninput="calcDays('dry')"/></div>
           <div class="form-group"><label>Días</label><input id="f-dryDays" type="number" value="${escH(lot.dryDays)}"/></div>
-          <div class="form-group"><label>Humedad final (%)</label><input id="f-finalMoisture" type="number" step="0.1" value="${escH(lot.finalMoisture)}"/></div>
+          <div class="form-group"><label>Humedad final (%) <span class="tol-badge">≤ 7.5 %</span></label><input id="f-finalMoisture" type="number" step="0.1" value="${escH(lot.finalMoisture)}" oninput="checkTol('finalMoisture',this.value,null,7.5)"/><div class="tol" id="tol-finalMoisture"></div></div>
           <div class="form-group"><label>Método de secado</label>
             <select id="f-dryMethod">
               <option value="">—</option>
@@ -1293,15 +1303,21 @@ async function renderLotForm(lot) {
         <div style="margin-top:14px;overflow-x:auto;">
           ${(()=>{
             const NTC = ['Bien fermentados (%)','Mediamente fermentados (%)','Violeta / pizarroso (%)','Mohosos internos (%)','Germinados (%)','Insectados (%)','Planos / vanos (%)','Índice de grano (g/grano)'];
+            const NTC_REF = ['≥ 65 %','≤ 10 %','≤ 10 %','≤ 4 %','≤ 3 %','≤ 1 %','≤ 2 %','≥ 1.2 g'];
+            const NTC_MIN = [65,   null, null, null, null, null, null, 1.2];
+            const NTC_MAX = [null,   10,   10,    4,    3,    1,    2, null];
             const vars = lot.varieties||[];
             const varCols = vars.map((v,vi) => `<th style="min-width:80px;font-size:10px;">${escH(typeof v==='object'?v.name:v)}</th>`).join('');
             const rows = NTC.map((param, ri) => {
               const stored = (lot.cutRows||[])[ri] || {};
               const varInputs = vars.map((v,vi) => `<td><input type="number" style="width:72px;padding:4px 6px;" value="${escH(stored['v'+vi]||'')}" id="cr-v${vi}-${ri}" placeholder=""/></td>`).join('');
+              const minV = NTC_MIN[ri], maxV = NTC_MAX[ri];
+              const tolAttr = minV!==null ? `oninput="checkTol('cr-m-${ri}',this.value,${minV},null)"` : maxV!==null ? `oninput="checkTol('cr-m-${ri}',this.value,null,${maxV})"` : '';
               return `<tr>
                 <td style="font-size:11px;white-space:nowrap;">${escH(param)}</td>
                 ${varInputs}
-                <td><input type="number" style="width:72px;padding:4px 6px;" value="${escH(stored.mezcla||'')}" id="cr-m-${ri}" placeholder=""/></td>
+                <td><input type="number" style="width:72px;padding:4px 6px;" value="${escH(stored.mezcla||'')}" id="cr-m-${ri}" placeholder="" ${tolAttr}/><div class="tol" id="tol-cr-m-${ri}" style="font-size:9px;"></div></td>
+                <td style="font-size:10px;color:var(--text-dim);white-space:nowrap;padding:4px 6px;">${NTC_REF[ri]}</td>
               </tr>`;
             }).join('');
             return `<table style="width:100%;border-collapse:collapse;font-size:11px;">
@@ -1309,6 +1325,7 @@ async function renderLotForm(lot) {
                 <th style="text-align:left;padding:6px 8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border);">Parámetro</th>
                 ${varCols}
                 <th style="min-width:80px;font-size:10px;border-bottom:1px solid var(--border);">Mezcla</th>
+                <th style="min-width:70px;font-size:10px;border-bottom:1px solid var(--border);color:var(--text-dim);">NTC 1252</th>
               </tr></thead>
               <tbody>${rows}</tbody>
             </table>`;
@@ -1331,7 +1348,7 @@ async function renderLotForm(lot) {
           <div class="form-group"><label>N.° sacos</label><input id="f-bagCount" type="number" value="${escH(lot.bagCount)}"/></div>
           <div class="form-group"><label>Peso por saco (kg)</label><input id="f-bagWeight" type="number" step="0.01" value="${escH(lot.bagWeight)}"/></div>
           <div class="form-group"><label>Peso neto empacado (kg)</label><input id="f-packNetWeight" type="number" step="0.01" value="${escH(lot.packNetWeight)}"/></div>
-          <div class="form-group"><label>Tipo de empaque</label><input id="f-packType" value="${escH(lot.packType)}"/></div>
+          <div class="form-group"><label>Tipo de empaque</label><select id="f-packType"><option value="">— Seleccionar —</option><option ${lot.packType==='Costal de fique'?'selected':''}>Costal de fique</option><option ${lot.packType==='Costal de yute'?'selected':''}>Costal de yute</option><option ${lot.packType==='Costal de polipropileno'?'selected':''}>Costal de polipropileno</option><option ${lot.packType==='Saco de papel kraft'?'selected':''}>Saco de papel kraft</option><option ${lot.packType==='Saco hermético (GrainPro)'?'selected':''}>Saco hermético (GrainPro)</option><option ${lot.packType==='Bolsa de propileno tejido'?'selected':''}>Bolsa de propileno tejido</option><option ${lot.packType==='Otro'?'selected':''}>Otro</option></select></div>
           <div class="form-group"><label>Comprador</label><input id="f-buyer" value="${escH(lot.buyer)}"/></div>
           <div class="form-group"><label>Fecha de despacho</label><input id="f-dispatchDate" type="date" value="${escH(lot.dispatchDate)}"/></div>
           <div class="form-group"><label>Referencia de transporte</label><input id="f-transportRef" value="${escH(lot.transportRef)}"/></div>
@@ -1514,7 +1531,7 @@ function renderMezclaForm(mez) {
         <div class="form-section-title">Empaque &amp; Despacho</div>
         <div class="form-grid">
           <div class="form-group"><label>Peso neto total (kg)</label><input id="mf-netWeight" type="number" step="0.01" value="${escH(mez.netWeight)}"/></div>
-          <div class="form-group"><label>Tipo de empaque</label><input id="mf-packType" value="${escH(mez.packType)}"/></div>
+          <div class="form-group"><label>Tipo de empaque</label><select id="mf-packType"><option value="">— Seleccionar —</option><option ${mez.packType==='Costal de fique'?'selected':''}>Costal de fique</option><option ${mez.packType==='Costal de yute'?'selected':''}>Costal de yute</option><option ${mez.packType==='Costal de polipropileno'?'selected':''}>Costal de polipropileno</option><option ${mez.packType==='Saco de papel kraft'?'selected':''}>Saco de papel kraft</option><option ${mez.packType==='Saco hermético (GrainPro)'?'selected':''}>Saco hermético (GrainPro)</option><option ${mez.packType==='Bolsa de propileno tejido'?'selected':''}>Bolsa de propileno tejido</option><option ${mez.packType==='Otro'?'selected':''}>Otro</option></select></div>
           <div class="form-group"><label>Comprador</label><input id="mf-buyer" value="${escH(mez.buyer)}"/></div>
         </div>
         <div class="form-grid" style="margin-top:12px;">
@@ -1663,6 +1680,20 @@ function exportCSV() {
 //  INIT
 // ══════════════════════════════════════════════════════
 // Auth state change handles everything on load
+
+
+// ── Tolerance checker ───────────────────────────────────────────────
+function checkTol(id, val, min, max) {
+  const el = document.getElementById('tol-' + id);
+  if (!el) return;
+  if (val === '' || val === null) { el.textContent = ''; el.className = 'tol'; return; }
+  const v = parseFloat(val);
+  let pass = true;
+  if (min !== null && v < min) pass = false;
+  if (max !== null && v > max) pass = false;
+  el.textContent = pass ? '✓ dentro del rango' : '⚠ fuera del rango';
+  el.className = 'tol ' + (pass ? 'pass' : 'fail');
+}
 
 // ══════════════════════════════════════════════════════
 //  PRINT DOCUMENT BUILDER
