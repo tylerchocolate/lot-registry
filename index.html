@@ -1671,6 +1671,14 @@ function buildAndPrint() {
   const l = editingLot;
   if (!l) return;
 
+  // Ensure print-doc container exists
+  let printDoc = document.getElementById('print-doc');
+  if (!printDoc) {
+    printDoc = document.createElement('div');
+    printDoc.id = 'print-doc';
+    document.body.insertBefore(printDoc, document.body.firstChild);
+  }
+
   // Helper: display value or dash
   const d = v => (v !== undefined && v !== null && v !== '') ? escH(String(v)) : '<span class="empty">—</span>';
   const dateStr = v => v ? new Date(v + 'T12:00:00').toLocaleDateString('es-CO', {day:'2-digit',month:'2-digit',year:'numeric'}) : '—';
@@ -1849,7 +1857,7 @@ function buildAndPrint() {
     </div>
   `;
 
-  document.getElementById('print-doc').innerHTML = html;
+  printDoc.innerHTML = html;
   setTimeout(() => window.print(), 100);
 }
 
