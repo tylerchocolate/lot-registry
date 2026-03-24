@@ -305,22 +305,71 @@
   .btn-new:hover { background: var(--green-dim); }
 
   /* ── Print styles ── */
+  #print-doc { display: none; }
+
   @media print {
-    #sidebar, #topbar, .form-back, .form-actions, .btn-add, .btn-rm,
-    .cut-row button, #nav-dashboard, #nav-lots, #nav-mezclas { display: none !important; }
-    #layout { overflow: visible; }
-    #content { padding: 0; overflow: visible; }
-    #app { height: auto; }
-    .photo-thumb { break-inside: avoid; }
-    .form-section { break-inside: avoid; }
-    body { background: #fff !important; color: #000 !important; }
-    .form-section-title { color: #000 !important; border-color: #ccc !important; }
-    .code-badge { background: #f0f0f0 !important; color: #000 !important; border-color: #ccc !important; }
-    .status-badge { border: 1px solid #ccc !important; color: #000 !important; background: #f0f0f0 !important; }
-    input, select, textarea { border: 1px solid #ccc !important; background: #fff !important; color: #000 !important; }
-    /* Only show the cut test photo section, hide all other photo sections */
-    .photo-gallery { display: grid !important; }
-    .from-app-badge { display: none; }
+    /* Hide the entire app UI */
+    #app { display: none !important; }
+    /* Show the print document */
+    #print-doc { display: block !important; }
+
+    /* Print document styles */
+    body { background: #fff !important; color: #000 !important; font-family: 'Nunito', sans-serif; margin: 0; }
+    #print-doc { font-size: 11px; color: #000; line-height: 1.4; padding: 0; }
+
+    .pd-header { display: flex; justify-content: space-between; align-items: flex-start;
+      padding: 18px 28px 14px; border-bottom: 2px solid #000; margin-bottom: 4px; }
+    .pd-logo-area { display: flex; flex-direction: column; gap: 1px; }
+    .pd-logo { font-size: 22px; font-weight: 900; letter-spacing: 4px; color: #000; }
+    .pd-sub { font-size: 9px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #555; }
+    .pd-lot-info { text-align: right; }
+    .pd-lot-code { font-size: 14px; font-weight: 900; letter-spacing: 1px; }
+    .pd-lot-status { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: #555; margin-top: 2px; }
+
+    .pd-body { padding: 0 28px 28px; }
+
+    .pd-section { margin-top: 16px; page-break-inside: avoid; }
+    .pd-section-title {
+      font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 2px;
+      border-bottom: 1px solid #000; padding-bottom: 4px; margin-bottom: 10px; color: #000;
+    }
+    .pd-section-num { display: inline-block; width: 16px; height: 16px; background: #000;
+      color: #fff; font-size: 8px; font-weight: 900; border-radius: 50%;
+      text-align: center; line-height: 16px; margin-right: 6px; vertical-align: middle; }
+
+    .pd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; margin-bottom: 6px; }
+    .pd-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px 24px; margin-bottom: 6px; }
+    .pd-field { display: flex; flex-direction: column; gap: 1px; }
+    .pd-field label { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #666; }
+    .pd-field .pd-val { font-size: 11px; font-weight: 600; border-bottom: 1px solid #ccc;
+      min-height: 16px; padding-bottom: 1px; }
+    .pd-field .pd-val.empty { color: #bbb; }
+
+    /* Cut test table */
+    .pd-cut-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 10px; }
+    .pd-cut-table th { background: #f5f5f5; font-weight: 800; font-size: 9px;
+      text-transform: uppercase; letter-spacing: 0.5px; padding: 5px 8px;
+      border: 1px solid #ddd; text-align: left; }
+    .pd-cut-table th.right, .pd-cut-table td.right { text-align: right; }
+    .pd-cut-table td { padding: 5px 8px; border: 1px solid #ddd; }
+    .pd-cut-table tr:nth-child(even) td { background: #fafafa; }
+    .pd-ntc { font-size: 9px; color: #555; }
+
+    /* Photos */
+    .pd-photos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+    .pd-photo { break-inside: avoid; }
+    .pd-photo img { width: 100%; border: 1px solid #ddd; border-radius: 4px; display: block; }
+    .pd-photo-caption { font-size: 8px; color: #666; text-align: center; margin-top: 2px; }
+
+    .pd-obs-box { border: 1px solid #ccc; border-radius: 3px; padding: 6px 8px;
+      min-height: 36px; margin-top: 6px; font-size: 10px; color: #333; }
+
+    .pd-footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #ddd;
+      display: flex; justify-content: space-between; font-size: 8px; color: #888; }
+
+    .pd-varieties { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+    .pd-variety-tag { border: 1px solid #ccc; border-radius: 3px; padding: 2px 8px;
+      font-size: 10px; font-weight: 600; }
   }
 
   /* ── Confirm modal ── */
@@ -1139,6 +1188,7 @@ async function renderLotForm(lot) {
     }).join('') + '</div>';
   }
   const hasPhotos = photoMeta.length > 0;
+  window._lotPhotoMeta = photoMeta; // used by buildAndPrint
 
   // Show loading state while fetching photos
   document.getElementById('lot-form-inner').innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-dim)">Cargando datos del lote…</div>';
@@ -1275,7 +1325,7 @@ async function renderLotForm(lot) {
       <div class="form-actions">
         <button class="btn-save" id="save-btn" onclick="saveLotForm()">Guardar lote</button>
         <button class="btn-cancel" onclick="backToList()">Cancelar</button>
-        <button class="btn-icon" onclick="window.print()" style="margin-left:auto;">🖨 Imprimir</button>
+        <button class="btn-icon" onclick="buildAndPrint()" style="margin-left:auto;">🖨 Imprimir</button>
       </div>
     </div>
   `;
@@ -1596,6 +1646,175 @@ function exportCSV() {
 //  INIT
 // ══════════════════════════════════════════════════════
 // Auth state change handles everything on load
+
+// ══════════════════════════════════════════════════════
+//  PRINT DOCUMENT BUILDER
+// ══════════════════════════════════════════════════════
+function buildAndPrint() {
+  const l = editingLot;
+  if (!l) return;
+
+  // Helper: display value or dash
+  const d = v => (v !== undefined && v !== null && v !== '') ? escH(String(v)) : '<span class="empty">—</span>';
+  const dateStr = v => v ? new Date(v + 'T12:00:00').toLocaleDateString('es-CO', {day:'2-digit',month:'2-digit',year:'numeric'}) : '—';
+
+  // Varieties
+  const varTags = (l.varieties||[]).filter(Boolean).map(v => `<span class="pd-variety-tag">${escH(v)}</span>`).join('');
+
+  // Cut test rows — use stored cutRows OR build from the NTC 1252 standard params
+  const NTC_PARAMS = [
+    { desc: 'Bien fermentados (%)',        ref: '≥ 65 %' },
+    { desc: 'Mediamente fermentados (%)',  ref: '≤ 10 %' },
+    { desc: 'Violeta / pizarroso (%)',     ref: '≤ 10 %' },
+    { desc: 'Mohosos internos (%)',        ref: '≤ 4 %' },
+    { desc: 'Germinados (%)',              ref: '≤ 3 %' },
+    { desc: 'Insectados (%)',              ref: '≤ 1 %' },
+    { desc: 'Planos / vanos (%)',          ref: '≤ 2 %' },
+    { desc: 'Índice de grano (g/grano)',   ref: '≥ 1.2 g' },
+  ];
+  const storedRows = l.cutRows || [];
+  const cutTableRows = NTC_PARAMS.map((p, i) => {
+    const r = storedRows[i] || {};
+    const pct = r.pct !== undefined && r.pct !== '' ? r.pct + ' %' : '';
+    return `<tr>
+      <td>${p.desc}</td>
+      <td class="right">${r.total || ''}</td>
+      <td class="right">${r.good || ''}</td>
+      <td class="right">${r.bad || ''}</td>
+      <td class="right">${pct}</td>
+      <td class="right pd-ntc">${p.ref}</td>
+    </tr>`;
+  }).join('');
+
+  // Cut test photos
+  const cutPhotos = window._lotPhotoMeta
+    ? window._lotPhotoMeta.filter(p => p.step?.startsWith('quality_check'))
+    : [];
+  const photoGrid = cutPhotos.length
+    ? '<div class="pd-photos">' + cutPhotos.map((p, i) => {
+        const url = `https://nlcpgqutjscdmxzmkckb.supabase.co/storage/v1/object/public/photos/${p.file_path}`;
+        return `<div class="pd-photo"><img src="${url}"/><div class="pd-photo-caption">Foto ${i+1}</div></div>`;
+      }).join('') + '</div>'
+    : '<p style="font-size:10px;color:#aaa;margin-top:8px;">Sin fotos registradas</p>';
+
+  // Status label
+  const STATUS_LABELS = {registered:'Registrado',processing:'En proceso',quality:'Calidad',packed:'Empacado',dispatched:'Despachado'};
+  const statusLbl = STATUS_LABELS[l.status] || l.status || '—';
+
+  const html = `
+    <div class="pd-header">
+      <div class="pd-logo-area">
+        <div class="pd-logo">PROVNR</div>
+        <div class="pd-sub">Fine &amp; Fair · Lot Registry</div>
+      </div>
+      <div class="pd-lot-info">
+        <div class="pd-lot-code">${escH(l.id)}</div>
+        <div class="pd-lot-status">Estado: ${statusLbl}</div>
+        <div style="font-size:9px;color:#888;margin-top:2px;">Generado: ${new Date().toLocaleDateString('es-CO')}</div>
+      </div>
+    </div>
+
+    <div class="pd-body">
+
+      <!-- 1. REGISTRO -->
+      <div class="pd-section">
+        <div class="pd-section-title"><span class="pd-section-num">1</span>Registro</div>
+        <div class="pd-grid">
+          <div class="pd-field"><label>Fecha de cosecha</label><div class="pd-val">${dateStr(l.harvestDate)}</div></div>
+          <div class="pd-field"><label>Estado</label><div class="pd-val">${statusLbl}</div></div>
+        </div>
+        <div class="pd-grid">
+          <div class="pd-field"><label>Nombre de la finca / asociación</label><div class="pd-val">${d(l.farmName)}</div></div>
+          <div class="pd-field"><label>Productor / Contacto</label><div class="pd-val">${d(l.producer)}</div></div>
+          <div class="pd-field"><label>Municipio</label><div class="pd-val">${d(l.municipality)}</div></div>
+          <div class="pd-field"><label>Departamento</label><div class="pd-val">${d(l.department)}</div></div>
+          <div class="pd-field"><label>Altitud (m.s.n.m.)</label><div class="pd-val">${d(l.altitude)}</div></div>
+          <div class="pd-field"><label>Técnico responsable</label><div class="pd-val">${d(l.technician0)}</div></div>
+        </div>
+        <div class="pd-field" style="margin-top:4px;"><label>Variedades</label>
+          <div class="pd-varieties">${varTags || '<span class="empty" style="font-size:10px;color:#bbb;">—</span>'}</div>
+        </div>
+        <div class="pd-grid-3" style="margin-top:8px;">
+          <div class="pd-field"><label>Peso bruto (kg)</label><div class="pd-val">${d(l.grossWeight)}</div></div>
+          <div class="pd-field"><label>Peso neto (kg)</label><div class="pd-val">${d(l.netWeight)}</div></div>
+          <div class="pd-field"><label>N.° de sacos</label><div class="pd-val">${d(l.bagCountReg)}</div></div>
+        </div>
+      </div>
+
+      <!-- 2. FERMENTACIÓN & SECADO -->
+      <div class="pd-section">
+        <div class="pd-section-title"><span class="pd-section-num">2</span>Fermentación &amp; Secado</div>
+        <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#555;margin-bottom:6px;">Fermentación</div>
+        <div class="pd-grid-3">
+          <div class="pd-field"><label>Inicio</label><div class="pd-val">${dateStr(l.fermentStart)}</div></div>
+          <div class="pd-field"><label>Fin</label><div class="pd-val">${dateStr(l.fermentEnd)}</div></div>
+          <div class="pd-field"><label>Días</label><div class="pd-val">${d(l.fermentDays)}</div></div>
+          <div class="pd-field"><label>N.° remociones</label><div class="pd-val">${d(l.turns)}</div></div>
+          <div class="pd-field"><label>Tipo de fermentador</label><div class="pd-val">${d(l.fermentorType)}</div></div>
+        </div>
+        ${l.fermentNotes ? `<div class="pd-field" style="margin-top:4px;"><label>Observaciones de fermentación</label><div class="pd-obs-box">${escH(l.fermentNotes)}</div></div>` : ''}
+
+        <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#555;margin-top:10px;margin-bottom:6px;">Secado</div>
+        <div class="pd-grid-3">
+          <div class="pd-field"><label>Inicio</label><div class="pd-val">${dateStr(l.dryStart)}</div></div>
+          <div class="pd-field"><label>Fin</label><div class="pd-val">${dateStr(l.dryEnd)}</div></div>
+          <div class="pd-field"><label>Días</label><div class="pd-val">${d(l.dryDays)}</div></div>
+          <div class="pd-field"><label>Humedad final (%)</label><div class="pd-val">${d(l.finalMoisture)}${l.finalMoisture ? '' : '<span style="font-size:8px;color:#aaa;"> ≤ 7.5</span>'}</div></div>
+          <div class="pd-field"><label>Método de secado</label><div class="pd-val">${d(l.dryMethod)}</div></div>
+        </div>
+        ${l.dryNotes ? `<div class="pd-field" style="margin-top:4px;"><label>Observaciones de secado</label><div class="pd-obs-box">${escH(l.dryNotes)}</div></div>` : ''}
+      </div>
+
+      <!-- 3. PRUEBA DE CORTE -->
+      <div class="pd-section">
+        <div class="pd-section-title"><span class="pd-section-num">3</span>Prueba de Corte</div>
+        <div class="pd-grid" style="margin-bottom:8px;">
+          <div class="pd-field"><label>Fecha de la prueba</label><div class="pd-val">${dateStr(l.cutDate)}</div></div>
+          <div class="pd-field"><label>Evaluador / Técnico</label><div class="pd-val">${d(l.cutTech)}</div></div>
+        </div>
+        <table class="pd-cut-table">
+          <thead><tr>
+            <th>Parámetro</th>
+            <th class="right">N°</th>
+            <th class="right">Buenos</th>
+            <th class="right">Malos</th>
+            <th class="right">%</th>
+            <th class="right">Ref. NTC 1252</th>
+          </tr></thead>
+          <tbody>${cutTableRows}</tbody>
+        </table>
+        ${l.sensorNotes ? `<div class="pd-field" style="margin-top:8px;"><label>Observaciones sensoriales</label><div class="pd-obs-box">${escH(l.sensorNotes)}</div></div>` : ''}
+        <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#555;margin-top:10px;margin-bottom:2px;">Fotos de prueba de corte</div>
+        ${photoGrid}
+      </div>
+
+      <!-- 4. EMPAQUE -->
+      <div class="pd-section">
+        <div class="pd-section-title"><span class="pd-section-num">4</span>Empaque</div>
+        <div class="pd-grid-3">
+          <div class="pd-field"><label>N.° de sacos</label><div class="pd-val">${d(l.bagCount)}</div></div>
+          <div class="pd-field"><label>Peso por saco (kg)</label><div class="pd-val">${d(l.bagWeight)}</div></div>
+          <div class="pd-field"><label>Peso neto total (kg)</label><div class="pd-val">${d(l.packNetWeight)}</div></div>
+          <div class="pd-field"><label>Tipo de empaque</label><div class="pd-val">${d(l.packType)}</div></div>
+          <div class="pd-field"><label>Comprador / Destino</label><div class="pd-val">${d(l.buyer)}</div></div>
+          <div class="pd-field"><label>Fecha de despacho</label><div class="pd-val">${dateStr(l.dispatchDate)}</div></div>
+          <div class="pd-field"><label>Referencia de transporte</label><div class="pd-val">${d(l.transportRef)}</div></div>
+        </div>
+        ${l.observations ? `<div class="pd-field" style="margin-top:4px;"><label>Observaciones</label><div class="pd-obs-box">${escH(l.observations)}</div></div>` : ''}
+      </div>
+
+    </div>
+
+    <div class="pd-footer" style="padding:0 28px 18px;">
+      <span>Fine · Lot Registry — Provnr</span>
+      <span>https://registro.provnr.com</span>
+    </div>
+  `;
+
+  document.getElementById('print-doc').innerHTML = html;
+  setTimeout(() => window.print(), 100);
+}
+
 </script>
 </body>
 </html>
