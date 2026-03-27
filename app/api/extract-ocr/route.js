@@ -4,14 +4,17 @@ import { createServerSupabaseClient } from '../../../lib/supabase-server';
 const STORAGE_BASE = 'https://nlcpgqutjscdmxzmkckb.supabase.co/storage/v1/object/public/photos';
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
 
-const SCALE_SYSTEM = 'You are a precise OCR system reading digital scale displays in cacao reception photos. For each photo read the weight shown on the scale screen. Return ONLY valid JSON, no preamble, no markdown: {"readings":[{"photo_index":0,"weight_kg":47.3,"unit":"kg","confidence":"high"}],"total_kg":47.3}. If lbs convert to kg. If unreadable set weight_kg null and confidence "unreadable". confidence: "high","medium","unreadable".';
-const FERMENT_SYSTEM = 'You are a precise OCR/vision system reading thermometers in cacao fermentation photos. Return ONLY valid JSON: {"readings":[{"photo_index":0,"temp_celsius":48.5,"temp_type":"current","scale":"C","confidence":"high"}],"max_temp_celsius":48.5}. If F convert C=(F-32)*5/9. temp_type: "current","max","peak". confidence: "high","medium","unreadable".';
-const MOISTURE_SYSTEM = 'You are a precise OCR system reading moisture meter displays in cacao drying photos. Return ONLY valid JSON: {"readings":[{"photo_index":0,"moisture_percent":7.2,"confidence":"high"}],"average_moisture_percent":7.2}. If unreadable set moisture_percent null and confidence "unreadable". confidence: "high","medium","unreadable".';
+// Shared preamble applied to ALL OCR prompts
+const JSON_ONLY = 'CRITICAL: Your response must be ONLY a valid JSON object. Do NOT include any text before or after the JSON. Do NOT say "Looking at", "I can see", or any other preamble. Start your response with { and end with }. No markdown, no explanation.';
+
+const SCALE_SYSTEM = JSON_ONLY + ' You are reading digital scale displays in cacao reception photos. For each photo read the weight on the scale screen. Return this exact JSON shape: {"readings":[{"photo_index":0,"weight_kg":47.3,"unit":"kg","confidence":"high"}],"total_kg":47.3,"notes":""}. If lbs convert to kg. If unreadable set weight_kg null and confidence "unreadable". confidence: "high","medium","unreadable".';
+const FERMENT_SYSTEM = JSON_ONLY + ' You are reading thermometers in cacao fermentation photos. For each photo identify the temperature from the analog dial, digital display, or max-hold needle. Return this exact JSON shape: {"readings":[{"photo_index":0,"temp_celsius":48.5,"temp_type":"current","scale":"C","confidence":"high"}],"max_temp_celsius":48.5,"notes":""}. If Fahrenheit convert C=(F-32)*5/9. temp_type: "current","max","peak". confidence: "high","medium","unreadable".';
+const MOISTURE_SYSTEM = JSON_ONLY + ' You are reading moisture meter displays in cacao drying photos. For each photo read the moisture percentage. Return this exact JSON shape: {"readings":[{"photo_index":0,"moisture_percent":7.2,"confidence":"high"}],"average_moisture_percent":7.2,"notes":""}. If unreadable set moisture_percent null and confidence "unreadable". confidence: "high","medium","unreadable".';
 
 const PROMPTS = {
-  scale:    { prefix: 'receiving_1', system: SCALE_SYSTEM,    user: 'Read the weight on each scale photo and return individual readings and total.' },
-  ferment:  { prefix: 'ferment_',    system: FERMENT_SYSTEM,  user: 'Read the temperature from each photo and identify the maximum temperature recorded.' },
-  moisture: { prefix: 'drying_',     system: MOISTURE_SYSTEM, user: 'Read the moisture percentage from each photo.' },
+  scale:    { prefix: 'receiving_1', system: SCALE_SYSTEM,    user: 'Read the weight shown on each scale. Return ONLY the JSON object, nothing else.' },
+  ferment:  { prefix: 'ferment_',    system: FERMENT_SYSTEM,  user: 'Read the temperature shown in each photo. Return ONLY the JSON object, nothing else.' },
+  moisture: { prefix: 'drying_',     system: MOISTURE_SYSTEM, user: 'Read the moisture percentage shown in each photo. Return ONLY the JSON object, nothing else.' },
 };
 
 function rollupConfidence(readings) {
@@ -27,6 +30,15 @@ function tsFromFilename(name) {
   return m ? new Date(parseInt(m[1])).toISOString() : null;
 }
 
+// Robust JSON extraction — strips any preamble the model adds before the first {
+function extractJSON(text) {
+  const stripped = text.replace(/```json|```/g, '').trim();
+  const start = stripped.indexOf('{');
+  const end = stripped.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error('No JSON object found in response: ' + stripped.slice(0, 100));
+  return JSON.parse(stripped.slice(start, end + 1));
+}
+
 async function runClaudeOcr(apiKey, system, user, photoUrls) {
   const blocks = photoUrls.flatMap((url, i) => [
     { type: 'text', text: 'Photo ' + (i+1) + ':' },
@@ -35,12 +47,17 @@ async function runClaudeOcr(apiKey, system, user, photoUrls) {
   const resp = await fetch(ANTHROPIC_API, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1024, system, messages: [{ role: 'user', content: [...blocks, { type: 'text', text: user }] }] }),
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1024,
+      system,
+      messages: [{ role: 'user', content: [...blocks, { type: 'text', text: user }] }],
+    }),
   });
   if (!resp.ok) { const e = await resp.json().catch(() => ({})); throw new Error(e.error?.message || 'Claude error ' + resp.status); }
   const data = await resp.json();
-  const raw = (data.content.find(b => b.type === 'text')?.text || '').replace(/```json|```/g, '').trim();
-  return JSON.parse(raw);
+  const raw = data.content.find(b => b.type === 'text')?.text || '';
+  return extractJSON(raw);
 }
 
 export async function POST(request) {
@@ -76,6 +93,7 @@ export async function POST(request) {
     }
   }
 
+  // Populate date fields from photo timestamps
   const ferFiles = fileMap['ferment_'] || [];
   if (ferFiles.length) {
     const s = ferFiles.filter(f => f.ts).sort((a,b) => a.ts.localeCompare(b.ts));
@@ -103,6 +121,7 @@ export async function POST(request) {
     }
   }
 
+  // Run OCR for each step
   for (const [key, prompt] of Object.entries(PROMPTS)) {
     try {
       const stepFiles = fileMap[prompt.prefix] || [];
