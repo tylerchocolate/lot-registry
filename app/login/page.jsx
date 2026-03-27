@@ -2,7 +2,7 @@
 
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { createBrowserSupabaseClient } from '../../lib/supabase-browser';
+import { createBrowserClient } from '../../lib/supabase-browser';
 
 const MINT = '#90EE82', BORDER = '#1e1e1c', CARD = '#0d0d0b';
 
@@ -21,7 +21,7 @@ function LoginForm() {
     setLoading(true);
     setError(null);
 
-    const db = createBrowserSupabaseClient();
+    const db = createBrowserClient();
     const { error: authError } = await db.auth.signInWithPassword({ email, password });
 
     if (authError) {
