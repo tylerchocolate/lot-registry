@@ -7,12 +7,8 @@ const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'sb_publishab
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
 
-  // Let the auth callback and static assets through immediately
-  if (
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/auth/') ||
-    pathname.includes('favicon')
-  ) {
+  // Let static assets through immediately (belt-and-suspenders alongside matcher)
+  if (pathname.startsWith('/_next') || pathname.includes('favicon')) {
     return NextResponse.next({ request });
   }
 
@@ -63,5 +59,14 @@ export async function middleware(request) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: [
+    /*
+     * Match all request paths EXCEPT:
+     * - _next/static (static files)
+     * - _next/image (image optimization)
+     * - favicon.ico, favicon.png, robots.txt, sitemap.xml (static root files)
+     * - /auth/* (signout route — handled by the route handler itself)
+     */
+    '/((?!_next/static|_next/image|favicon|robots|sitemap|auth/).*)',
+  ],
 };

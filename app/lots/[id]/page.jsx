@@ -4,19 +4,21 @@ import LotDetail from '../../../components/LotDetail';
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }) {
-  return { title: `Lot ${params.id} — Registro Provnr` };
+  const { id } = await params;
+  return { title: `Lot ${id} — Registro Provnr` };
 }
 
 export default async function LotPage({ params }) {
+  const { id } = await params;
   let lot, exportDocs, phytoSignedUrl;
 
   try {
-    lot = await getLot(params.id);
+    lot = await getLot(id);
   } catch (e) {
     return (
       <div style={{ padding: 40, color: '#ff8080', fontFamily: 'monospace', background: '#060606', minHeight: '100vh' }}>
         <h2 style={{ marginBottom: 12 }}>getLot error</h2>
-        <p>ID: {params.id}</p>
+        <p>ID: {id}</p>
         <p>Message: {e.message}</p>
         <p>Code: {e.code}</p>
         <p>Details: {JSON.stringify(e.details)}</p>
@@ -28,13 +30,13 @@ export default async function LotPage({ params }) {
     return (
       <div style={{ padding: 40, color: '#ff8080', fontFamily: 'monospace', background: '#060606', minHeight: '100vh' }}>
         <h2>Lot is null</h2>
-        <p>ID: {params.id}</p>
+        <p>ID: {id}</p>
       </div>
     );
   }
 
   try {
-    exportDocs = await getExportDocs(params.id);
+    exportDocs = await getExportDocs(id);
   } catch (e) {
     exportDocs = [];
   }
@@ -51,4 +53,5 @@ export default async function LotPage({ params }) {
   );
 
   return <LotDetail lot={lot} exportDocs={docsWithUrls} phytoSignedUrl={phytoSignedUrl} />;
+}
 }
