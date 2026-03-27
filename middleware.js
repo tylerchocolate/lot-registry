@@ -1,30 +1,35 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 
-const url  = 'https://nlcpgqutjscdmxzmkckb.supabase.co';
-const anon = 'sb_publishable_L5_2020M69veWtQRhNwe3g_cOlwmhk7';
+// Supabase v2 stores the session as JSON in a cookie named:
+// sb-{project-ref}-auth-token
+// where project-ref is the subdomain of your Supabase URL.
+const PROJECT_REF  = 'nlcpgqutjscdmxzmkckb';
+const COOKIE_NAME  = `sb-${PROJECT_REF}-auth-token`;
 
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
 
-  // Always allow the login page through
-  if (pathname.startsWith('/login')) return NextResponse.next();
+  // Always allow login page and Next.js internals
+  if (pathname.startsWith('/login') || pathname.startsWith('/_next') || pathname === '/favicon.ico') {
+    return NextResponse.next();
+  }
 
-  // Check for the Supabase auth token in cookies
-  const token = request.cookies.get('sb-access-token')?.value
-    ?? request.cookies.get(`sb-${url.split('//')[1].split('.')[0]}-auth-token`)?.value;
+  // Check for the Supabase session cookie
+  const sessionCookie = request.cookies.get(COOKIE_NAME)?.value;
 
-  if (!token) {
+  if (!sessionCookie) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('next', pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  // Verify the token is still valid
+  // Validate the cookie contains a real session (not just any value)
   try {
-    const db = createClient(url, anon);
-    const { error } = await db.auth.getUser(token);
-    if (error) throw error;
+    const session = JSON.parse(decodeURIComponent(sessionCookie));
+    // Supabase session has access_token and expires_at
+    if (!session?.access_token) throw new Error('invalid');
+    // Check not expired
+    if (session.expires_at && session.expires_at * 1000 < Date.now()) throw new Error('expired');
   } catch {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('next', pathname);
@@ -35,5 +40,5 @@ export async function middleware(request) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api).*)'],
 };

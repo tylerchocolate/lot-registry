@@ -31,7 +31,6 @@ function LoginForm() {
     }
 
     router.push(next);
-    router.refresh();
   }
 
   const inputStyle = {
