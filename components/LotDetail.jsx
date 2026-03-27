@@ -1,10 +1,10 @@
 'use client';
-
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import LotEditor from './LotEditor';
 import PhytoCertUpload from './PhytoCertUpload';
 import ExportDocsPanel from './ExportDocsPanel';
+import OcrPanel from './OcrPanel';
 
 const MINT = '#90EE82', ORANGE = '#F5921E', BORDER = '#1e1e1c', CARD = '#0d0d0b', DIM = '#888882';
 
@@ -15,9 +15,9 @@ function fmt(d) {
 
 function StatusPill({ status }) {
   const map = {
-    registered: { bg: '#90EE8218', color: MINT,    border: '#90EE8244', label: 'Registered' },
-    pending:    { bg: '#F5921E18', color: ORANGE,   border: '#F5921E44', label: 'Pending' },
-    rejected:   { bg: '#FF5A5A18', color: '#FF5A5A',border: '#FF5A5A44', label: 'Rejected' },
+    registered: { bg: '#90EE8218', color: MINT,      border: '#90EE8244', label: 'Registered' },
+    pending:    { bg: '#F5921E18', color: ORANGE,    border: '#F5921E44', label: 'Pending' },
+    rejected:   { bg: '#FF5A5A18', color: '#FF5A5A', border: '#FF5A5A44', label: 'Rejected' },
   };
   const s = map[status] ?? { bg: '#ffffff10', color: '#888', border: '#ffffff22', label: status ?? 'Unknown' };
   return (
@@ -28,7 +28,7 @@ function StatusPill({ status }) {
 }
 
 const TABS = [
-  { id: 'details', label: 'Lot Details' },
+  { id: 'details',   label: 'Lot Details' },
   { id: 'documents', label: 'Documents' },
 ];
 
@@ -38,11 +38,13 @@ export default function LotDetail({ lot, exportDocs, phytoSignedUrl }) {
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: '0 24px 80px' }}>
-
       {/* Header */}
       <div style={{ padding: '24px 0 20px', borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button onClick={() => router.push('/lots')} style={{ background: 'none', border: `1px solid ${BORDER}`, borderRadius: 7, color: '#555', padding: '5px 10px', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'inherit' }}>
+          <button
+            onClick={() => router.push('/lots')}
+            style={{ background: 'none', border: `1px solid ${BORDER}`, borderRadius: 7, color: '#555', padding: '5px 10px', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'inherit' }}
+          >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
             Lots
           </button>
@@ -65,7 +67,10 @@ export default function LotDetail({ lot, exportDocs, phytoSignedUrl }) {
             ['Harvest',  fmt(lot.harvest_date)],
             ['Buyer',    lot.buyer],
           ].filter(([, v]) => v).map(([l, v]) => (
-            <div key={l}><span style={{ fontSize: 11, color: '#555' }}>{l} </span><span style={{ fontSize: 12, color: '#999' }}>{v}</span></div>
+            <div key={l}>
+              <span style={{ fontSize: 11, color: '#555' }}>{l} </span>
+              <span style={{ fontSize: 12, color: '#999' }}>{v}</span>
+            </div>
           ))}
         </div>
       </div>
@@ -84,7 +89,12 @@ export default function LotDetail({ lot, exportDocs, phytoSignedUrl }) {
       </div>
 
       {/* Tab content */}
-      {tab === 'details' && <LotEditor lot={lot} />}
+      {tab === 'details' && (
+        <div>
+          <OcrPanel lot={lot} />
+          <LotEditor lot={lot} />
+        </div>
+      )}
       {tab === 'documents' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <PhytoCertUpload lot={lot} phytoSignedUrl={phytoSignedUrl} />
