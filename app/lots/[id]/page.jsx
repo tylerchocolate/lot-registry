@@ -54,4 +54,3 @@ export default async function LotPage({ params }) {
 
   return <LotDetail lot={lot} exportDocs={docsWithUrls} phytoSignedUrl={phytoSignedUrl} />;
 }
-}
