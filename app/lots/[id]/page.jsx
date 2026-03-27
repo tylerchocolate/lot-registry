@@ -28,7 +28,6 @@ export default async function LotPage({ params }) {
     phytoSignedUrl = await getSignedUrl(lot.phyto_cert_storage_path);
   }
 
-  // Generate signed URLs for all export docs that have a storage path
   const docsWithUrls = await Promise.all(
     exportDocs.map(async doc => ({
       ...doc,

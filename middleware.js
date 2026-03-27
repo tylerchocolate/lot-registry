@@ -1,44 +1,43 @@
+import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 
-// Supabase v2 stores the session as JSON in a cookie named:
-// sb-{project-ref}-auth-token
-// where project-ref is the subdomain of your Supabase URL.
-const PROJECT_REF  = 'nlcpgqutjscdmxzmkckb';
-const COOKIE_NAME  = `sb-${PROJECT_REF}-auth-token`;
+const URL  = 'https://nlcpgqutjscdmxzmkckb.supabase.co';
+const ANON = 'sb_publishable_L5_2020M69veWtQRhNwe3g_cOlwmhk7';
 
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
 
-  // Always allow login page and Next.js internals
-  if (pathname.startsWith('/login') || pathname.startsWith('/_next') || pathname === '/favicon.ico') {
+  // Pass through login page and API routes
+  if (pathname.startsWith('/login') || pathname.startsWith('/api')) {
     return NextResponse.next();
   }
 
-  // Check for the Supabase session cookie
-  const sessionCookie = request.cookies.get(COOKIE_NAME)?.value;
+  const response = NextResponse.next({ request });
 
-  if (!sessionCookie) {
+  const supabase = createServerClient(URL, ANON, {
+    cookies: {
+      getAll:  ()           => request.cookies.getAll(),
+      setAll: (cookiesToSet) => {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          request.cookies.set(name, value);
+          response.cookies.set(name, value, options);
+        });
+      },
+    },
+  });
+
+  // Refresh session if expired — required for Server Components
+  const { data: { session } } = await supabase.auth.getSession();
+
+  if (!session) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('next', pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  // Validate the cookie contains a real session (not just any value)
-  try {
-    const session = JSON.parse(decodeURIComponent(sessionCookie));
-    // Supabase session has access_token and expires_at
-    if (!session?.access_token) throw new Error('invalid');
-    // Check not expired
-    if (session.expires_at && session.expires_at * 1000 < Date.now()) throw new Error('expired');
-  } catch {
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('next', pathname);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };
