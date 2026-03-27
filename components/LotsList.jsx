@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createBrowserClient } from '../lib/supabase-browser';
 
 const MINT = '#90EE82', ORANGE = '#F5921E', BORDER = '#1e1e1c', CARD = '#0d0d0b', DIM = '#888882';
 
@@ -28,7 +27,6 @@ function StatusPill({ status }) {
 export default function LotsList({ lots }) {
   const router = useRouter();
   const [search, setSearch] = useState('');
-  const [loggingOut, setLoggingOut] = useState(false);
 
   const filtered = lots.filter(l => {
     const q = search.toLowerCase();
@@ -38,13 +36,6 @@ export default function LotsList({ lots }) {
       || l.municipality?.toLowerCase().includes(q)
       || l.buyer?.toLowerCase().includes(q);
   });
-
-  async function handleLogout() {
-    setLoggingOut(true);
-    const db = createBrowserClient();
-    await db.auth.signOut();
-    router.push('/login');
-  }
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px 80px' }}>
@@ -58,13 +49,14 @@ export default function LotsList({ lots }) {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 11, color: '#444' }}>registro.provnr.com</span>
-          <button
-            onClick={handleLogout}
-            disabled={loggingOut}
-            style={{ padding: '5px 12px', background: 'transparent', border: `1px solid ${BORDER}`, borderRadius: 7, color: '#555', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
-          >
-            {loggingOut ? 'Signing out…' : 'Sign out'}
-          </button>
+          <form action="/auth/signout" method="post">
+            <button
+              type="submit"
+              style={{ padding: '5px 12px', background: 'transparent', border: `1px solid ${BORDER}`, borderRadius: 7, color: '#555', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              Sign out
+            </button>
+          </form>
         </div>
       </div>
 
