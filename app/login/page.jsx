@@ -1,13 +1,12 @@
 'use client';
 
 import { useState, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { createBrowserClient } from '../../lib/supabase';
+import { useSearchParams } from 'next/navigation';
+import { createBrowserClient } from '../../lib/supabase-browser';
 
 const MINT = '#90EE82', BORDER = '#1e1e1c', CARD = '#0d0d0b';
 
 function LoginForm() {
-  const router       = useRouter();
   const searchParams = useSearchParams();
   const next         = searchParams.get('next') || '/lots';
 
@@ -30,8 +29,18 @@ function LoginForm() {
       return;
     }
 
-    // Hard navigate so middleware re-evaluates with the new session cookie
-    window.location.href = next;
+    // Poll until the session cookie is readable, then navigate
+    let attempts = 0;
+    const go = async () => {
+      const { data: { session } } = await db.auth.getSession();
+      if (session || attempts > 10) {
+        window.location.replace(next);
+      } else {
+        attempts++;
+        setTimeout(go, 200);
+      }
+    };
+    go();
   }
 
   const inputStyle = {
