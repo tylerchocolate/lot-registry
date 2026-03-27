@@ -88,5 +88,14 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
-  return <Suspense><LoginForm /></Suspense>;
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 20, height: 20, border: '2px solid #90EE8233', borderTopColor: '#90EE82', borderRadius: '50%', animation: 'spin .7s linear infinite' }}/>
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
+  );
 }
