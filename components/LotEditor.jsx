@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createBrowserClient } from '../lib/supabase';
+import { createBrowserClient } from '../lib/supabase-browser';
 
 const MINT = '#90EE82', BORDER = '#1e1e1c', DIM = '#888882';
 

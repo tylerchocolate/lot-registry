@@ -10,7 +10,11 @@ const MINT = '#90EE82', ORANGE = '#F5921E', BORDER = '#1e1e1c', CARD = '#0d0d0b'
 
 function fmt(d) {
   if (!d) return '—';
-  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  const date = new Date(d);
+  const day = date.getUTCDate();
+  const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][date.getUTCMonth()];
+  const yr  = date.getUTCFullYear();
+  return `${day} ${mon} ${yr}`;
 }
 
 function StatusPill({ status }) {
