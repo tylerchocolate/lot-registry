@@ -43,7 +43,7 @@ const TABS = [
   { id: 'deliveries',label: 'Entregas' },
 ];
 
-export default function FarmerDetail({ farmer, deliveries, role }) {
+export default function FarmerDetail({ farmer, deliveries, role, orgName, orgCode }) {
   const router = useRouter();
   const [tab, setTab]     = useState('profile');
   const [form, setForm]   = useState({ ...farmer });
@@ -121,6 +121,12 @@ export default function FarmerDetail({ farmer, deliveries, role }) {
         <h1 style={{ fontFamily: 'Nunito, sans-serif', fontWeight: 900, fontSize: 24, color: '#f0f0ea', letterSpacing: '-0.02em', marginBottom: 6 }}>
           {farmer.full_name}
         </h1>
+        {/* Association badge — anchors this farmer to their org */}
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#0d1a0d', border: '1px solid #1a3a1a', borderRadius: 8, padding: '5px 12px', marginBottom: 10 }}>
+          <span style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Asociación</span>
+          <span style={{ fontSize: 13, color: MINT, fontWeight: 700 }}>{orgName}</span>
+          {orgCode && <span style={{ fontSize: 11, color: '#444', fontFamily: 'monospace' }}>{orgCode}</span>}
+        </div>
         <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
           {[
             ['Finca',      farmer.farm_name],
@@ -190,7 +196,7 @@ export default function FarmerDetail({ farmer, deliveries, role }) {
 
       {/* QR tab */}
       {tab === 'qr' && (
-        <FarmerQR farmer={farmer} />
+        <FarmerQR farmer={farmer} orgName={orgName} orgCode={orgCode} />
       )}
 
       {/* Deliveries tab */}

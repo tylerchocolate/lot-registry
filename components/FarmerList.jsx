@@ -202,10 +202,16 @@ export default function FarmerList({ farmers, orgId, orgName, orgCode, role }) {
       {showAdd && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 50, padding: '40px 20px', overflowY: 'auto' }}>
           <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, width: '100%', maxWidth: 520, padding: 28 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <h2 style={{ fontFamily: 'Nunito, sans-serif', fontWeight: 900, fontSize: 18, color: '#f0f0ea', margin: 0 }}>Agregar agricultor</h2>
               <button onClick={() => { setShowAdd(false); setForm(EMPTY_FORM); setErr(''); }}
                 style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>✕</button>
+            </div>
+            {/* Association context — makes the linkage explicit */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#0a0a08', border: `1px solid ${BORDER}`, borderRadius: 8, padding: '8px 12px', marginBottom: 20 }}>
+              <span style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Asociación</span>
+              <span style={{ fontSize: 13, color: MINT, fontWeight: 700 }}>{orgName}</span>
+              <span style={{ fontSize: 11, color: '#444', fontFamily: 'monospace', marginLeft: 2 }}>{orgCode}</span>
             </div>
 
             <form onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

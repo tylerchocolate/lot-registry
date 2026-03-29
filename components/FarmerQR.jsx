@@ -18,7 +18,7 @@ function qrImgUrl(value, size = 200) {
   return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(value)}&bgcolor=ffffff&color=000000&margin=2`;
 }
 
-export default function FarmerQR({ farmer }) {
+export default function FarmerQR({ farmer, orgName, orgCode }) {
   const [copied, setCopied] = useState(false);
   const value = qrValue(farmer.id);
 
@@ -53,6 +53,7 @@ export default function FarmerQR({ farmer }) {
             <img src="${qrImgUrl(value, 180)}" width="180" height="180" alt="QR" />
             <div class="name">${farmer.full_name}</div>
             ${farmer.farm_name ? `<div class="farm">${farmer.farm_name}</div>` : ''}
+            ${orgName ? `<div class="farm" style="color:#999;font-size:11px;margin-top:2px">${orgName}</div>` : ''}
             <div class="id">${farmer.id}</div>
           </div>
         </body>
@@ -78,6 +79,9 @@ export default function FarmerQR({ farmer }) {
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 16, fontWeight: 900, color: '#000', fontFamily: 'Nunito, sans-serif', marginBottom: 4 }}>{farmer.full_name}</div>
           {farmer.farm_name && <div style={{ fontSize: 13, color: '#555' }}>{farmer.farm_name}</div>}
+          {orgName && (
+            <div style={{ fontSize: 11, color: '#aaa', marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{orgName}</div>
+          )}
         </div>
       </div>
 
